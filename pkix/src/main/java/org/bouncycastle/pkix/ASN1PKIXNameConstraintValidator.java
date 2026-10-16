@@ -1015,15 +1015,17 @@ class ASN1PKIXNameConstraintValidator
 
     private boolean emailIsConstrained(String email, String constraint)
     {
-        String sub = email.substring(email.indexOf('@') + 1);
+        // RFC 1034 root-label trailing dot: canonicalise the rfc822Name host as the dNSName path does, so
+        // a trailing dot (e.g. "user@bank.com.") cannot slip a leaf past an excluded/permitted "bank.com".
+        String sub = stripTrailingDot(email.substring(email.indexOf('@') + 1));
         // a particular mailbox
         if (constraint.indexOf('@') != -1)
         {
-            if (email.equalsIgnoreCase(constraint))
+            if (stripTrailingDot(email).equalsIgnoreCase(stripTrailingDot(constraint)))
             {
                 return true;
             }
-            if (sub.equalsIgnoreCase(constraint.substring(1)))
+            if (sub.equalsIgnoreCase(stripTrailingDot(constraint.substring(1))))
             {
                 return true;
             }
@@ -1031,7 +1033,7 @@ class ASN1PKIXNameConstraintValidator
         // on particular host
         else if (!(constraint.charAt(0) == '.'))
         {
-            if (sub.equalsIgnoreCase(constraint))
+            if (sub.equalsIgnoreCase(stripTrailingDot(constraint)))
             {
                 return true;
             }
@@ -1051,6 +1053,10 @@ class ASN1PKIXNameConstraintValidator
         {
             tempDomain = tempDomain.substring(1);
         }
+        // Strip the RFC 1034 root-label trailing dot so the per-label
+        // compare doesn't see a phantom empty label.
+        testDomain = stripTrailingDot(testDomain);
+        tempDomain = stripTrailingDot(tempDomain);
         String[] domainParts = Strings.split(tempDomain, '.');
         String[] testDomainParts = Strings.split(testDomain, '.');
         // must have at least one subdomain
@@ -1091,7 +1097,7 @@ class ASN1PKIXNameConstraintValidator
             String str = ((String)it.next());
 
             // is sub domain
-            if (withinDomain(dns, str) || dns.equalsIgnoreCase(str))
+            if (withinDomain(dns, str) || stripTrailingDot(dns).equalsIgnoreCase(stripTrailingDot(str)))
             {
                 return;
             }
@@ -1119,7 +1125,7 @@ class ASN1PKIXNameConstraintValidator
             String str = ((String)it.next());
 
             // is sub domain or the same
-            if (withinDomain(dns, str) || dns.equalsIgnoreCase(str))
+            if (withinDomain(dns, str) || stripTrailingDot(dns).equalsIgnoreCase(stripTrailingDot(str)))
             {
                 throw new NameConstraintValidatorException(
                     "DNS is from an excluded subtree.");
@@ -1788,11 +1794,13 @@ class ASN1PKIXNameConstraintValidator
 
     private boolean isUriConstrained(String uri, String constraint)
     {
-        String host = extractHostFromURL(uri);
+        // Strip an RFC 1034 root-label trailing dot from the host, matching the dNSName path, so a
+        // URI host such as "competitor.example." cannot slip past a "competitor.example" constraint.
+        String host = stripTrailingDot(extractHostFromURL(uri));
         // a host
         if (!constraint.startsWith("."))
         {
-            if (host.equalsIgnoreCase(constraint))
+            if (host.equalsIgnoreCase(stripTrailingDot(constraint)))
             {
                 return true;
             }
@@ -1805,6 +1813,17 @@ class ASN1PKIXNameConstraintValidator
         }
 
         return false;
+    }
+
+    private static String stripTrailingDot(String s)
+    {
+        // length > 1 so a single bare "." (theoretically the empty-label
+        // root) is preserved rather than reduced to "".
+        if (s != null && s.length() > 1 && s.charAt(s.length() - 1) == '.')
+        {
+            return s.substring(0, s.length() - 1);
+        }
+        return s;
     }
 
     private static String extractHostFromURL(String url)
