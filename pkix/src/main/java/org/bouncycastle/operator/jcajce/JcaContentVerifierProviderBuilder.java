@@ -429,17 +429,20 @@ public class JcaContentVerifierProviderBuilder
             {
                 ASN1Sequence sigSeq = ASN1Sequence.getInstance(expected);
                 boolean failed = false;
+                boolean atLeastOneChecked = false;
+            
                 for (int i = 0; i != sigSeq.size(); i++)
                 {
                     if (sigs[i] != null)
                     {
+                        atLeastOneChecked = true;
                         if (!sigs[i].verify(DERBitString.getInstance(sigSeq.getObjectAt(i)).getBytes()))
                         {
                             failed = true;
                         }
                     }
                 }
-                return !failed;
+                return !failed & atLeastOneChecked;
             }
             catch (SignatureException e)
             {
