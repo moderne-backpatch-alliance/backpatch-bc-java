@@ -30,6 +30,7 @@ import org.bouncycastle.crypto.digests.SHA512Digest;
 import org.bouncycastle.crypto.params.ParametersWithRandom;
 import org.bouncycastle.crypto.signers.DSASigner;
 import org.bouncycastle.jce.interfaces.GOST3410Key;
+import org.bouncycastle.util.Arrays;
 
 public class JDKDSASigner
     extends SignatureSpi
@@ -217,10 +218,23 @@ public class JDKDSASigner
         throws IOException
     {
         ASN1Sequence s = (ASN1Sequence)ASN1Object.fromByteArray(encoding);
-        return new BigInteger[]{
+        if (s.size() != 2)
+        {
+            throw new IOException("malformed signature");
+        }
+
+        BigInteger[] sig = new BigInteger[]{
             ((DERInteger)s.getObjectAt(0)).getValue(),
             ((DERInteger)s.getObjectAt(1)).getValue()
         };
+
+        // DERInteger keeps non-minimal content octets, so compare against the canonical encoding of the values
+        if (!Arrays.areEqual(encoding, derEncode(sig[0], sig[1])))
+        {
+            throw new IOException("malformed signature");
+        }
+
+        return sig;
     }
 
     static public class stdDSA
