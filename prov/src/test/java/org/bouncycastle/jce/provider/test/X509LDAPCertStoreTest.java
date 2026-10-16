@@ -15,6 +15,8 @@ import org.bouncycastle.jce.X509LDAPCertStoreParameters;
 import org.bouncycastle.jce.exception.ExtCertPathBuilderException;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.test.TestResourceFinder;
+import org.bouncycastle.x509.X509CertStoreSelector;
+import org.bouncycastle.x509.util.LDAPStoreHelper;
 
 import javax.net.ServerSocketFactory;
 import javax.net.SocketFactory;
@@ -97,6 +99,76 @@ public class X509LDAPCertStoreTest
         ds.shutDown(true);
 
         assertTrue(filterCheck.isUsed());
+    }
+
+    public void testLdapStoreHelperFilter()
+        throws Exception
+    {
+        FilterCapture filterCapture = new FilterCapture();
+
+        InMemoryDirectoryServerConfig serverConfig = new InMemoryDirectoryServerConfig("dc=test");
+        serverConfig.setListenerConfigs(new InMemoryListenerConfig(
+                "listen",
+                InetAddress.getByName("0.0.0.0"),
+                1389,
+                ServerSocketFactory.getDefault(),
+                SocketFactory.getDefault(),
+                (SSLSocketFactory) SSLSocketFactory.getDefault()));
+        serverConfig.addInMemoryOperationInterceptor(filterCapture);
+        InMemoryDirectoryServer ds = new InMemoryDirectoryServer(serverConfig);
+        ds.startListening();
+
+        try
+        {
+            KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC", "BC");
+
+            kpg.initialize(256);
+
+            X509Certificate cert = TestUtils.createSelfSignedCert(new X500Name("CN=chars[*()\\\0]"), "SHA256withECDSA", kpg.generateKeyPair());
+
+            X509CertSelector selector = new X509CertSelector();
+            selector.setSubject(cert.getSubjectX500Principal().getEncoded());
+
+            LDAPStoreHelper helper = new LDAPStoreHelper(new X509LDAPCertStoreParameters.Builder("ldap://127.0.0.1:1389", "CN=certificates").build());
+            helper.getUserCertificates(X509CertStoreSelector.getInstance(selector));
+        }
+        finally
+        {
+            ds.shutDown(true);
+        }
+
+        List<String> subjectFilters = new ArrayList<String>();
+        for (String filter : filterCapture.getFilters())
+        {
+            if (filter.indexOf("chars") >= 0)
+            {
+                subjectFilters.add(filter);
+            }
+        }
+
+        assertFalse("no subject search reached the server", subjectFilters.isEmpty());
+        for (String filter : subjectFilters)
+        {
+            assertTrue(filter, filter.indexOf("chars[\\2a\\28\\29") >= 0);
+        }
+    }
+
+    static class FilterCapture
+        extends InMemoryOperationInterceptor
+    {
+        private final List<String> filters = new ArrayList<String>();
+
+        public synchronized void processSearchResult(InMemoryInterceptedSearchResult result)
+        {
+            filters.add(result.getRequest().getFilter().toString());
+
+            result.setResult(new LDAPResult(0, ResultCode.SUCCESS));
+        }
+
+        synchronized List<String> getFilters()
+        {
+            return new ArrayList<String>(filters);
+        }
     }
 
     private static InMemoryDirectoryServer mockLdapServer(BcFilterCheck filterCheck)
