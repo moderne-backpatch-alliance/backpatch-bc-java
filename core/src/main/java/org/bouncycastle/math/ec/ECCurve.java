@@ -12,6 +12,7 @@ import org.bouncycastle.math.field.FiniteFields;
 import org.bouncycastle.math.raw.Nat;
 import org.bouncycastle.util.BigIntegers;
 import org.bouncycastle.util.Integers;
+import org.bouncycastle.util.Properties;
 
 /**
  * base class for an elliptic curve
@@ -797,6 +798,12 @@ public abstract class ECCurve
 
         private static FiniteField buildField(int m, int k1, int k2, int k3)
         {
+            String maxFieldSize = Properties.getPropertyValue("org.bouncycastle.ec.max_f2m_field_size");
+            if (m > ((maxFieldSize != null) ? Integer.parseInt(maxFieldSize) : 1142))  // twice 571
+            {
+                throw new IllegalArgumentException("field size out of range: " + m);
+            }
+
             if (k1 == 0)
             {
                 throw new IllegalArgumentException("k1 must be > 0");

@@ -197,6 +197,38 @@ public class ECPointTest extends TestCase
         }
     }
 
+    public void testLargeMInF2m()
+    {
+        int m = 2048;
+        int k1 = 1;
+        BigInteger aTpb = new BigInteger("1000", 2);
+        BigInteger bTpb = new BigInteger("1001", 2);
+        BigInteger n = new BigInteger("23");
+        BigInteger h = new BigInteger("1");
+
+        try
+        {
+            ECCurve.F2m curve = new ECCurve.F2m(m, k1, aTpb, bTpb, n, h);
+        }
+        catch (IllegalArgumentException e)
+        {
+            assertEquals("field size out of range: 2048", e.getMessage());
+        }
+    }
+
+    public void testLargeMInF2mRejected()
+    {
+        try
+        {
+            new ECCurve.F2m(2048, 1, new BigInteger("1000", 2), new BigInteger("1001", 2), new BigInteger("23"), BigInteger.ONE);
+            fail("F2m curve with m = 2048 accepted");
+        }
+        catch (IllegalArgumentException e)
+        {
+            assertEquals("field size out of range: 2048", e.getMessage());
+        }
+    }
+
     /**
      * Calls <code>implTestAdd()</code> for <code>Fp</code> and
      * <code>F2m</code>.
