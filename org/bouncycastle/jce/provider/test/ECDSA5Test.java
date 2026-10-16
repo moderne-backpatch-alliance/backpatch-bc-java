@@ -15,6 +15,7 @@ import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.security.Signature;
+import java.security.SignatureException;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECFieldF2m;
@@ -37,9 +38,12 @@ import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.asn1.x9.X962Parameters;
 import org.bouncycastle.asn1.x9.X9ObjectIdentifiers;
 import org.bouncycastle.jce.ECKeyUtil;
+import org.bouncycastle.jce.ECNamedCurveTable;
 import org.bouncycastle.jce.ECPointUtil;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.jce.spec.ECNamedCurveParameterSpec;
 import org.bouncycastle.util.BigIntegers;
+import org.bouncycastle.util.Strings;
 import org.bouncycastle.util.encoders.Hex;
 import org.bouncycastle.util.test.FixedSecureRandom;
 import org.bouncycastle.util.test.SimpleTest;
@@ -51,6 +55,97 @@ public class ECDSA5Test
     byte[] k2 = Hex.decode("345e8d05c075c3a508df729a1685690e68fcfb8c8117847e89063bca1f85d968fd281540b6e13bd1af989a1fbf17e06462bf511f9d0b140fb48ac1b1baa5bded");
 
     SecureRandom    random = new FixedSecureRandom(new byte[][] { k1, k2 });
+    static final BigInteger PubX =
+        new BigInteger("3390396496586153202365024500890309020181905168626402195853036609"
+            + "0984128098564");
+    static final BigInteger PubY =
+        new BigInteger("1135421298983937257390683162600855221890652900790509030911087400"
+            + "65052129055287");
+    static final String[] VALID_SIGNATURES = {
+        "3045022100b7babae9332b54b8a3a05b7004579821a887a1b21465f7db8a3d49"
+            + "1b39fd2c3f0220747291dd2f3f44af7ace68ea33431d6f94e418c106a6e76285"
+            + "cd59f43260ecce",
+    };
+
+    // The following test vectors check for signature malleability and bugs. That means the test
+    // vectors are derived from a valid signature by modifying the ASN encoding. A correct
+    // implementation of ECDSA should only accept correct DER encoding and properly handle the
+    // others (e.g. integer overflow, infinity, redundant parameters, etc). Allowing alternative BER
+    // encodings is in many cases benign. An example where this kind of signature malleability was a
+    // problem: https://en.bitcoin.it/wiki/Transaction_Malleability
+    static final String[] MODIFIED_SIGNATURES = {
+        "304602812100b7babae9332b54b8a3a05b7004579821a887a1b21465f7db8a3d491b39fd2c3f0220747291dd2f"
+            + "3f44af7ace68ea33431d6f94e418c106a6e76285cd59f43260ecce",
+        "30470282002100b7babae9332b54b8a3a05b7004579821a887a1b21465f7db8a3d491b39fd2c3f0220747291dd"
+            + "2f3f44af7ace68ea33431d6f94e418c106a6e76285cd59f43260ecce",
+        "304602220000b7babae9332b54b8a3a05b7004579821a887a1b21465f7db8a3d491b39fd2c3f0220747291dd2f"
+            + "3f44af7ace68ea33431d6f94e418c106a6e76285cd59f43260ecce",
+        "3046022100b7babae9332b54b8a3a05b7004579821a887a1b21465f7db8a3d491b39fd2c3f028120747291dd2f"
+            + "3f44af7ace68ea33431d6f94e418c106a6e76285cd59f43260ecce",
+        "3047022100b7babae9332b54b8a3a05b7004579821a887a1b21465f7db8a3d491b39fd2c3f02820020747291dd"
+            + "2f3f44af7ace68ea33431d6f94e418c106a6e76285cd59f43260ecce",
+        "3046022100b7babae9332b54b8a3a05b7004579821a887a1b21465f7db8a3d491b39fd2c3f022100747291dd2f"
+            + "3f44af7ace68ea33431d6f94e418c106a6e76285cd59f43260ecce",
+        "308145022100b7babae9332b54b8a3a05b7004579821a887a1b21465f7db8a3d491b39fd2c3f0220747291dd2f"
+            + "3f44af7ace68ea33431d6f94e418c106a6e76285cd59f43260ecce",
+        "30820045022100b7babae9332b54b8a3a05b7004579821a887a1b21465f7db8a3d491b39fd2c3f0220747291dd"
+            + "2f3f44af7ace68ea33431d6f94e418c106a6e76285cd59f43260ecce",
+        "3047022100b7babae9332b54b8a3a05b7004579821a887a1b21465f7db8a3d491b39fd2c3f0220747291dd2f3f"
+            + "44af7ace68ea33431d6f94e418c106a6e76285cd59f43260ecce3000",
+        "3047022100b7babae9332b54b8a3a05b7004579821a887a1b21465f7db8a3d491b39fd2c3f0220747291dd2f3f"
+            + "44af7ace68ea33431d6f94e418c106a6e76285cd59f43260ecce1000",
+        "3047022100b7babae9332b54b8a3a05b7004579821a887a1b21465f7db8a3d491b39fd2c3f0220747291dd2f3f"
+            + "44af7ace68ea33431d6f94e418c106a6e76285cd59f43260ecce0000",
+        "3045022100b7babae9332b54b8a3a05b7004579821a887a1b21465f7db8a3d491b39fd2c3f0220747291dd2f3f"
+            + "44af7ace68ea33431d6f94e418c106a6e76285cd59f43260ecce0000",
+        "3048022100b7babae9332b54b8a3a05b7004579821a887a1b21465f7db8a3d491b39fd2c3f0220747291dd2f3f"
+            + "44af7ace68ea33431d6f94e418c106a6e76285cd59f43260ecce058100",
+        "3049022100b7babae9332b54b8a3a05b7004579821a887a1b21465f7db8a3d491b39fd2c3f0220747291dd2f3f"
+            + "44af7ace68ea33431d6f94e418c106a6e76285cd59f43260ecce05820000",
+        "3047022100b7babae9332b54b8a3a05b7004579821a887a1b21465f7db8a3d491b39fd2c3f0220747291dd2f3f"
+            + "44af7ace68ea33431d6f94e418c106a6e76285cd59f43260ecce1100",
+        "3047022100b7babae9332b54b8a3a05b7004579821a887a1b21465f7db8a3d491b39fd2c3f0220747291dd2f3f"
+            + "44af7ace68ea33431d6f94e418c106a6e76285cd59f43260ecce0500",
+        "3047022100b7babae9332b54b8a3a05b7004579821a887a1b21465f7db8a3d491b39fd2c3f0220747291dd2f3f"
+            + "44af7ace68ea33431d6f94e418c106a6e76285cd59f43260ecce2500",
+        "3067022100b7babae9332b54b8a3a05b7004579821a887a1b21465f7db8a3d491b39fd2c3f0220747291dd2f3f"
+            + "44af7ace68ea33431d6f94e418c106a6e76285cd59f43260ecce0220747291dd2f3f44af7ace68ea33431d6f"
+            + "94e418c106a6e76285cd59f43260ecce"
+    };
+
+    private void testModified()
+        throws Exception
+    {
+        ECNamedCurveParameterSpec namedCurve = ECNamedCurveTable.getParameterSpec("P-256");
+        org.bouncycastle.jce.spec.ECPublicKeySpec pubSpec = new org.bouncycastle.jce.spec.ECPublicKeySpec(namedCurve.getCurve().createPoint(PubX, PubY, false), namedCurve);
+        KeyFactory kFact = KeyFactory.getInstance("EC", "BC");
+        PublicKey pubKey = kFact.generatePublic(pubSpec);
+        Signature sig = Signature.getInstance("SHA256WithECDSA", "BC");
+
+        for (int i = 0; i != MODIFIED_SIGNATURES.length; i++)
+        {
+            sig.initVerify(pubKey);
+
+            sig.update(Strings.toByteArray("Hello"));
+
+            boolean failed;
+
+            try
+            {
+                failed = !sig.verify(Hex.decode(MODIFIED_SIGNATURES[i]));
+            }
+            catch (SignatureException e)
+            {
+                failed = true;
+            }
+
+            if (!failed)
+            {
+                fail("sig verified when shouldn't: " + i);
+            }
+        }
+    }
+
     
     private void decodeTest()
     {
@@ -433,6 +528,7 @@ public class ECDSA5Test
         testECDSA239bitBinary();
         testGeneration();
         testKeyPairGenerationWithOIDs();
+        testModified();
     }
 
     public static void main(

@@ -31,6 +31,7 @@ import org.bouncycastle.jce.interfaces.ECKey;
 import org.bouncycastle.jce.provider.DSABase;
 import org.bouncycastle.jce.provider.DSAEncoder;
 import org.bouncycastle.jce.provider.JDKKeyFactory;
+import org.bouncycastle.util.Arrays;
 
 public class Signature
     extends DSABase
@@ -260,10 +261,21 @@ public class Signature
             throws IOException
         {
             ASN1Sequence s = (ASN1Sequence)ASN1Object.fromByteArray(encoding);
+            if (s.size() != 2)
+            {
+                throw new IOException("malformed signature");
+            }
+
             BigInteger[] sig = new BigInteger[2];
 
             sig[0] = ((DERInteger)s.getObjectAt(0)).getValue();
             sig[1] = ((DERInteger)s.getObjectAt(1)).getValue();
+
+            // DERInteger keeps non-minimal content octets, so compare against the canonical encoding of the values
+            if (!Arrays.areEqual(encoding, encode(sig[0], sig[1])))
+            {
+                throw new IOException("malformed signature");
+            }
 
             return sig;
         }
