@@ -316,15 +316,16 @@ public class NewAuthenticatedDataStreamTest
             assertEquals("digestAlgorithm and authAttrs must be set together", e.getMessage());
         }
 
-        // ... as does the in-memory CMS wrapper over the same bytes, as a CMSException.
+        // ... as does the in-memory CMS wrapper over the same bytes. 1.78.1's CMSAuthenticatedData
+        // passes AuthenticatedData's IllegalArgumentException through rather than wrapping it.
         try
         {
             new CMSAuthenticatedData(forged.getEncoded());
             fail("CMSAuthenticatedData must reject authAttrs without digestAlgorithm");
         }
-        catch (CMSException e)
+        catch (IllegalArgumentException e)
         {
-            assertEquals("Malformed content.", e.getMessage());
+            assertEquals("digestAlgorithm and authAttrs must be set together", e.getMessage());
         }
 
         // The streaming parser cannot see the two fields together at construction time, so it
