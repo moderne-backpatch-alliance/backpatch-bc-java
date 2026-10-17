@@ -17,6 +17,7 @@ import org.bouncycastle.crypto.params.DHPublicKeyParameters;
 import org.bouncycastle.crypto.params.DHUPrivateParameters;
 import org.bouncycastle.crypto.params.DHUPublicParameters;
 import org.bouncycastle.crypto.params.ParametersWithRandom;
+import org.bouncycastle.util.BigIntegers;
 import org.bouncycastle.util.encoders.Hex;
 import org.bouncycastle.util.test.SimpleTest;
 
@@ -210,33 +211,6 @@ public class DHTest
         {
             fail("basic with random 2-way test failed");
         }
-    }
-
-    private DHBasicKeyPairGenerator getDHBasicKeyPairGenerator(
-        BigInteger g,
-        BigInteger p,
-        int        privateValueSize)
-    {
-        DHParameters                dhParams = new DHParameters(p, g, null, privateValueSize);
-        DHKeyGenerationParameters   params = new DHKeyGenerationParameters(new SecureRandom(), dhParams);
-        DHBasicKeyPairGenerator     kpGen = new DHBasicKeyPairGenerator();
-
-        kpGen.init(params);
-        
-        return kpGen;
-    }
-    
-    private DHKeyPairGenerator getDHKeyPairGenerator(
-        BigInteger g,
-        BigInteger p)
-    {
-        DHParameters                dhParams = new DHParameters(p, g);
-        DHKeyGenerationParameters   params = new DHKeyGenerationParameters(new SecureRandom(), dhParams);
-        DHKeyPairGenerator          kpGen = new DHKeyPairGenerator();
-
-        kpGen.init(params);
-        
-        return kpGen;
     }
     
     /**
@@ -437,6 +411,59 @@ public class DHTest
         return null;
     }
     
+    private void testMaliciousMessage()
+    {
+        // Both peer-supplied values to CalculateAgreement are raised to our (potentially static)
+        // private key, so a peer sending a small-order or out-of-range element could mount a
+        // small-subgroup confinement attack and recover our private key. Both must be validated as
+        // DH public values, even when the other value is well-formed and uses our own parameters.
+        DHKeyPairGenerator kpGen = getDHKeyPairGenerator(g512, p512);
+        DHParameters dhParams = ((DHPublicKeyParameters)kpGen.generateKeyPair().getPublic()).getParameters();
+
+        DHAgreement dh = new DHAgreement();
+        dh.init(kpGen.generateKeyPair().getPrivate());
+        dh.calculateMessage();
+
+        DHPublicKeyParameters goodPub = (DHPublicKeyParameters)kpGen.generateKeyPair().getPublic();
+        BigInteger goodMessage = ((DHPublicKeyParameters)kpGen.generateKeyPair().getPublic()).getY();
+
+        // p-1 has order 2; it is also out of the accepted (1, p-1) range.
+        BigInteger orderTwo = dhParams.getP().subtract(BigIntegers.ONE);
+
+        // A malicious 'message' must be rejected even when 'pub' is well-formed.
+        BigInteger[] badMessages = new BigInteger[]{ BigIntegers.ONE, orderTwo, dhParams.getP() };
+        for (int i = 0; i < badMessages.length; ++i)
+        {
+            BigInteger badMessage = badMessages[i];
+            try
+            {
+                dh.calculateAgreement(goodPub, badMessage);
+                fail("DHAgreement accepted malicious message " + badMessage);
+            }
+            catch (IllegalArgumentException e)
+            {
+                // expected
+            }
+        }
+
+        // A malicious 'pub' must be rejected even when 'message' is well-formed. DHWeakPubKey passes
+        // construction-time validation with a dummy Y, then returns a weak value from the overridden
+        // (virtual) Y property -- so CalculateAgreement must re-validate rather than trust the type.
+        BigInteger[] weakYs = new BigInteger[]{ BigIntegers.ONE, orderTwo, dhParams.getP() };
+        for (int i = 0; i < weakYs.length; ++i)
+        {
+            BigInteger weakY = weakYs[i];
+            try
+            {
+                dh.calculateAgreement(new DHWeakPubKey(weakY, dhParams), goodMessage);
+                fail("DHAgreement accepted malicious public key " + weakY);
+            }
+            catch (IllegalArgumentException e)
+            {
+                // expected
+            }
+        }
+    }
     public void performTest()
     {
         testDHBasic(512, 0, g512, p512);
@@ -453,6 +480,7 @@ public class DHTest
 
         testBounds();
 
+        testMaliciousMessage();
         testCombinedTestVector1();
         testCombinedTestVector2();
         
@@ -532,9 +560,48 @@ public class DHTest
         }
     }
 
-    public static void main(
-        String[]    args)
+    public static void main(String[] args)
     {
         runTest(new DHTest());
+    }
+
+    private static DHBasicKeyPairGenerator getDHBasicKeyPairGenerator(BigInteger g, BigInteger p, int privateValueSize)
+    {
+        DHParameters dhParams = new DHParameters(p, g, null, privateValueSize);
+        DHKeyGenerationParameters params = new DHKeyGenerationParameters(new SecureRandom(), dhParams);
+        DHBasicKeyPairGenerator kpGen = new DHBasicKeyPairGenerator();
+
+        kpGen.init(params);
+
+        return kpGen;
+    }
+
+    private static DHKeyPairGenerator getDHKeyPairGenerator(BigInteger g, BigInteger p)
+    {
+        DHParameters dhParams = new DHParameters(p, g);
+        DHKeyGenerationParameters params = new DHKeyGenerationParameters(new SecureRandom(), dhParams);
+        DHKeyPairGenerator kpGen = new DHKeyPairGenerator();
+
+        kpGen.init(params);
+
+        return kpGen;
+    }
+
+    private static class DHWeakPubKey
+        extends DHPublicKeyParameters
+    {
+        private final BigInteger weakY;
+
+        DHWeakPubKey(BigInteger weakY, DHParameters parameters)
+        {
+            super(BigIntegers.TWO, parameters);
+
+            this.weakY = weakY;
+        }
+
+        public BigInteger getY()
+        {
+            return weakY;
+        }
     }
 }
