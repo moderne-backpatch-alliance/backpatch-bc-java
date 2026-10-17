@@ -467,56 +467,17 @@ public class ASN1InputStream
         return buf;
     }
 
-    private static char[] getBMPCharBuffer(DefiniteLengthInputStream defIn)
+    private static byte[] getBMPBuffer(DefiniteLengthInputStream defIn)
         throws IOException
     {
-        int remainingBytes = defIn.getRemaining();
-        if (0 != (remainingBytes & 1))
+        if (0 != (defIn.getRemaining() & 1))
         {
             throw new IOException("malformed BMPString encoding encountered");
         }
 
-        char[] string = new char[remainingBytes / 2];
-        int stringPos = 0;
-
-        byte[] buf = new byte[8];
-        while (remainingBytes >= 8)
-        {
-            if (Streams.readFully(defIn, buf, 0, 8) != 8)
-            {
-                throw new EOFException("EOF encountered in middle of BMPString");
-            }
-
-            string[stringPos    ] = (char)((buf[0] << 8) | (buf[1] & 0xFF));
-            string[stringPos + 1] = (char)((buf[2] << 8) | (buf[3] & 0xFF));
-            string[stringPos + 2] = (char)((buf[4] << 8) | (buf[5] & 0xFF));
-            string[stringPos + 3] = (char)((buf[6] << 8) | (buf[7] & 0xFF));
-            stringPos += 4;
-            remainingBytes -= 8;
-        }
-        if (remainingBytes > 0)
-        {
-            if (Streams.readFully(defIn, buf, 0, remainingBytes) != remainingBytes)
-            {
-                throw new EOFException("EOF encountered in middle of BMPString");
-            }
-
-            int bufPos = 0;
-            do
-            {
-                int b1 = buf[bufPos++] << 8;
-                int b2 = buf[bufPos++] & 0xFF;
-                string[stringPos++] = (char)(b1 | b2);
-            }
-            while (bufPos < remainingBytes);
-        }
-
-        if (0 != defIn.getRemaining() || string.length != stringPos)
-        {
-            throw new IllegalStateException();
-        }
-
-        return string;
+        // toByteArray grows its buffer as the bytes arrive; sizing a char[] from getRemaining() up
+        // front let a short header claim a heap-sized allocation before any content was read.
+        return defIn.toByteArray();
     }
 
     static ASN1Primitive createPrimitiveDERObject(
@@ -536,7 +497,7 @@ public class ASN1InputStream
             case BIT_STRING:
                 return ASN1BitString.createPrimitive(defIn.toByteArray());
             case BMP_STRING:
-                return ASN1BMPString.createPrimitive(getBMPCharBuffer(defIn));
+                return ASN1BMPString.createPrimitive(getBMPBuffer(defIn));
             case BOOLEAN:
                 return ASN1Boolean.createPrimitive(getBuffer(defIn, tmpBuffers));
             case ENUMERATED:

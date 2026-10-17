@@ -55,7 +55,9 @@ public class RegressionTest
         new DLExternalTest(),
         new KMACParamsTest(),
         new DERPrivateTest(),
-        new X509AltTest()
+        new X509AltTest(),
+        new DefiniteLengthAllocationTest(),
+        new BMPStringAllocationTest()
     };
 
     public static void main(String[] args)
