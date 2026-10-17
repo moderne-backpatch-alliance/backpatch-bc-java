@@ -12,15 +12,20 @@ import java.util.Set;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.cms.CCMParameters;
+import org.bouncycastle.asn1.cms.GCMParameters;
 import org.bouncycastle.asn1.cms.IssuerAndSerialNumber;
 import org.bouncycastle.asn1.cryptopro.CryptoProObjectIdentifiers;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.rosstandart.RosstandartObjectIdentifiers;
 import org.bouncycastle.asn1.sec.SECObjectIdentifiers;
+import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.Certificate;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x9.X9ObjectIdentifiers;
+import org.bouncycastle.cms.CMSAlgorithm;
 import org.bouncycastle.cms.CMSException;
+import org.bouncycastle.cms.CMSTagLengthException;
 import org.bouncycastle.jcajce.util.AlgorithmParametersUtils;
 import org.bouncycastle.jcajce.util.AnnotatedPrivateKey;
 
@@ -159,5 +164,45 @@ class CMSUtils
         {
             throw new CMSException("error encoding algorithm parameters.", e);
         }
+    }
+
+    /**
+     * Refuse an AEAD content algorithm whose authentication tag is shorter than the configured
+     * minimum. A no-op when no minimum is set or when the content algorithm is not AEAD.
+     */
+    static void checkTagSize(AlgorithmIdentifier contentAlgorithm, int minimumTagSizeInBits)
+        throws CMSTagLengthException
+    {
+        if (minimumTagSizeInBits > 0)
+        {
+            int macLenOctets = getAEADMacLength(contentAlgorithm);
+
+            if (macLenOctets >= 0 && macLenOctets * 8 < minimumTagSizeInBits)
+            {
+                throw new CMSTagLengthException("AEAD tag size " + (macLenOctets * 8)
+                    + " bits below required minimum " + minimumTagSizeInBits + " bits");
+            }
+        }
+    }
+
+    // the AEAD tag length carried in AuthEnvelopedData's content algorithm, or -1 if not AEAD
+    private static int getAEADMacLength(AlgorithmIdentifier encAlgId)
+    {
+        ASN1ObjectIdentifier algorithm = encAlgId.getAlgorithm();
+
+        if (CMSAlgorithm.AES128_GCM.equals(algorithm)
+            || CMSAlgorithm.AES192_GCM.equals(algorithm)
+            || CMSAlgorithm.AES256_GCM.equals(algorithm))
+        {
+            return GCMParameters.getInstance(encAlgId.getParameters()).getIcvLen();
+        }
+        if (CMSAlgorithm.AES128_CCM.equals(algorithm)
+            || CMSAlgorithm.AES192_CCM.equals(algorithm)
+            || CMSAlgorithm.AES256_CCM.equals(algorithm))
+        {
+            return CCMParameters.getInstance(encAlgId.getParameters()).getIcvLen();
+        }
+
+        return -1;
     }
 }

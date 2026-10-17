@@ -20,6 +20,7 @@ import org.bouncycastle.cms.PasswordRecipient;
 public abstract class JcePasswordRecipient
     implements PasswordRecipient
 {
+    private int minimumTagSizeInBits = 0;
     private int schemeID = PasswordRecipient.PKCS5_SCHEME2_UTF8;
     protected EnvelopedDataHelper helper = new EnvelopedDataHelper(new DefaultJcaJceExtHelper());
     private char[] password;
@@ -51,9 +52,26 @@ public abstract class JcePasswordRecipient
         return this;
     }
 
+    /**
+     * Set the minimum AEAD authentication tag size (in bits) this recipient will accept. When set, an
+     * attempt to recover AuthEnvelopedData whose content algorithm carries a shorter tag is rejected,
+     * mitigating an attacker downgrading the tag to a weaker length.
+     *
+     * @param tagSizeInBits the minimum acceptable AEAD tag size, in bits.
+     * @return this recipient.
+     */
+    public JcePasswordRecipient setMinimumTagSize(int tagSizeInBits)
+    {
+        this.minimumTagSizeInBits = tagSizeInBits;
+
+        return this;
+    }
+
     protected Key extractSecretKey(AlgorithmIdentifier keyEncryptionAlgorithm, AlgorithmIdentifier contentEncryptionAlgorithm, byte[] derivedKey, byte[] encryptedContentEncryptionKey)
         throws CMSException
     {
+        CMSUtils.checkTagSize(contentEncryptionAlgorithm, minimumTagSizeInBits);
+
         Cipher keyEncryptionCipher = helper.createRFC3211Wrapper(keyEncryptionAlgorithm.getAlgorithm());
 
         try
