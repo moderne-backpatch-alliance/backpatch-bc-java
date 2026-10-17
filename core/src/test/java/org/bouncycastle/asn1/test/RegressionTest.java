@@ -58,7 +58,8 @@ public class RegressionTest
         new DefiniteLengthAllocationTest(),
         new BMPStringAllocationTest(),
         new RDNEscapeTest(),
-        new OIDLengthLimitTest()
+        new OIDLengthLimitTest(),
+        new SetSortCacheTest()
     };
 
     public static void main(String[] args)
