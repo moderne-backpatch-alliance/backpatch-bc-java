@@ -54,7 +54,8 @@ public class RegressionTest
         new DLExternalTest(),
         new KMACParamsTest(),
         new DERPrivateTest(),
-        new RDNEscapeTest()
+        new RDNEscapeTest(),
+        new SetSortCacheTest()
     };
 
     public static void main(String[] args)

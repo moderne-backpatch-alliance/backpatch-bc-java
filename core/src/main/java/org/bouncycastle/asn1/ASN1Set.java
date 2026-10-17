@@ -101,6 +101,8 @@ public abstract class ASN1Set
     protected final ASN1Encodable[] elements;
     protected final boolean isSorted;
 
+    protected ASN1Encodable[] sortedElements;
+
     /**
      * return an ASN1Set from the given object.
      *
@@ -227,6 +229,7 @@ public abstract class ASN1Set
     {
         this.elements = ASN1EncodableVector.EMPTY_ELEMENTS;
         this.isSorted = true;
+        this.sortedElements = elements;
     }
 
     /**
@@ -242,6 +245,7 @@ public abstract class ASN1Set
 
         this.elements = new ASN1Encodable[]{ element };
         this.isSorted = true;
+        this.sortedElements = elements;
     }
 
     /**
@@ -269,6 +273,7 @@ public abstract class ASN1Set
 
         this.elements = tmp;
         this.isSorted = doSort || tmp.length < 2;
+        this.sortedElements = isSorted ? elements : null;
     }
 
     /**
@@ -291,12 +296,21 @@ public abstract class ASN1Set
 
         this.elements = tmp;
         this.isSorted = doSort || tmp.length < 2;
+        this.sortedElements = isSorted ? elements : null;
     }
 
     ASN1Set(boolean isSorted, ASN1Encodable[] elements)
     {
         this.elements = elements;
         this.isSorted = isSorted || elements.length < 2;
+        this.sortedElements = this.isSorted ? elements : null;
+    }
+
+    ASN1Set(ASN1Encodable[] elements, ASN1Encodable[] sortedElements)
+    {
+        this.elements = elements;
+        this.isSorted = elements == sortedElements;
+        this.sortedElements = sortedElements;
     }
 
     public Enumeration getObjects()
@@ -415,8 +429,12 @@ public abstract class ASN1Set
         }
         else
         {
-            tmp = (ASN1Encodable[])elements.clone();
-            sort(tmp);
+            if (sortedElements == null)
+            {
+                sortedElements = (ASN1Encodable[])elements.clone();
+                sort(sortedElements);
+            }
+            tmp = sortedElements;
         }
 
         return new DERSet(true, tmp);
@@ -428,7 +446,7 @@ public abstract class ASN1Set
      */
     ASN1Primitive toDLObject()
     {
-        return new DLSet(isSorted, elements);
+        return new DLSet(elements, sortedElements);
     }
 
     boolean asn1Equals(ASN1Primitive other)
