@@ -3,11 +3,14 @@ package org.bouncycastle.openssl;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.Reader;
+import java.math.BigInteger;
+import java.security.AccessController;
 import java.security.AlgorithmParameters;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
+import java.security.PrivilegedAction;
 import java.security.PublicKey;
 import java.security.cert.CertificateFactory;
 import java.security.spec.DSAPrivateKeySpec;
@@ -696,7 +699,8 @@ public class PEMReader
                     EncryptionScheme scheme = params.getEncryptionScheme();
                     PBKDF2Params defParams = (PBKDF2Params)func.getParameters();
 
-                    int iterationCount = defParams.getIterationCount().intValue();
+                    // Bound the unauthenticated iteration count before deriving the key.
+                    int iterationCount = checkIterationCount(defParams.getIterationCount());
                     byte[] salt = defParams.getSalt();
 
                     String algorithm = scheme.getAlgorithm().getId();
@@ -771,6 +775,37 @@ public class PEMReader
                 throw new PEMException("problem parsing ENCRYPTED PRIVATE KEY: " + e.toString(), e);
             }
         }
+    }
+
+    private static int checkIterationCount(BigInteger ic)
+        throws IOException
+    {
+        if (ic == null || ic.signum() < 0 || ic.bitLength() > 31)
+        {
+            throw new IOException("invalid iteration count");
+        }
+
+        long max = findMaxIterationCount();
+        if (ic.longValue() > max)
+        {
+            throw new IOException("iteration count (" + ic + ") greater than " + max);
+        }
+
+        return ic.intValue();
+    }
+
+    // 1.46 has no org.bouncycastle.util.Properties: upstream's property, read as a system property
+    private static long findMaxIterationCount()
+    {
+        String value = (String)AccessController.doPrivileged(new PrivilegedAction()
+        {
+            public Object run()
+            {
+                return System.getProperty("org.bouncycastle.pbe.max_iteration_count");
+            }
+        });
+
+        return (value != null) ? Integer.parseInt(value.trim()) : 10000000;
     }
 
     private class PrivateKeyParser

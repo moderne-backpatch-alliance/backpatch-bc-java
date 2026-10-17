@@ -1,5 +1,7 @@
 package org.bouncycastle.jce.provider.test;
 
+import java.io.IOException;
+import java.io.StringReader;
 import java.security.AlgorithmParameters;
 import java.security.Security;
 import java.security.spec.InvalidParameterSpecException;
@@ -13,7 +15,13 @@ import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.PBEParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.bouncycastle.asn1.ASN1EncodableVector;
+import org.bouncycastle.asn1.DERInteger;
+import org.bouncycastle.asn1.DERObject;
+import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.bc.BCObjectIdentifiers;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.crypto.Digest;
 import org.bouncycastle.crypto.PBEParametersGenerator;
 import org.bouncycastle.crypto.digests.SHA1Digest;
@@ -23,6 +31,9 @@ import org.bouncycastle.crypto.generators.PKCS12ParametersGenerator;
 import org.bouncycastle.crypto.params.KeyParameter;
 import org.bouncycastle.crypto.params.ParametersWithIV;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.openssl.PEMReader;
+import org.bouncycastle.openssl.PasswordFinder;
+import org.bouncycastle.util.encoders.Base64;
 import org.bouncycastle.util.encoders.Hex;
 import org.bouncycastle.util.test.SimpleTest;
 
@@ -391,9 +402,82 @@ public class PBETest
         }
     }
     
+    // CVE-2026-15055, test written for the backpatch (upstream's PKCS8Test.testPbkdf2IterationCountBound targets
+    // the bcpkix decryptors): PEMReader refuses a PBES2 PBKDF2 iteration count above
+    // org.bouncycastle.pbe.max_iteration_count (default 10,000,000) before deriving the key. The ciphertext is filler.
+    private void testPemPbes2IterationCountBound()
+        throws Exception
+    {
+        System.setProperty("org.bouncycastle.pbe.max_iteration_count", "1000");
+        try
+        {
+            checkPemRefused(2048, "iteration count (2048) greater than 1000");
+        }
+        finally
+        {
+            System.getProperties().remove("org.bouncycastle.pbe.max_iteration_count");
+        }
+
+        checkPemRefused(10000001, "iteration count (10000001) greater than 10000000");
+    }
+
+    private void checkPemRefused(int iterationCount, String message)
+        throws Exception
+    {
+        PEMReader reader = new PEMReader(new StringReader(pbes2Pem(iterationCount)), new PasswordFinder()
+        {
+            public char[] getPassword()
+            {
+                return "hello".toCharArray();
+            }
+        });
+        try
+        {
+            reader.readObject();
+            fail("PBES2 key with iteration count " + iterationCount + " accepted");
+        }
+        catch (IOException e)
+        {
+            if (e.getMessage() == null || e.getMessage().indexOf(message) < 0)
+            {
+                fail("PBES2 key with iteration count " + iterationCount + ": " + e);
+            }
+        }
+    }
+
+    // ENCRYPTED PRIVATE KEY: PBES2 { PBKDF2 { salt, iterationCount }, des-ede3-cbc { iv } }, 16 bytes of filler
+    private static String pbes2Pem(int iterationCount)
+        throws IOException
+    {
+        ASN1EncodableVector kdfParams = new ASN1EncodableVector();
+        kdfParams.add(new DEROctetString(new byte[8]));
+        kdfParams.add(new DERInteger(iterationCount));
+        ASN1EncodableVector kdf = new ASN1EncodableVector();
+        kdf.add(PKCSObjectIdentifiers.id_PBKDF2);
+        kdf.add(new DERSequence(kdfParams));
+        ASN1EncodableVector enc = new ASN1EncodableVector();
+        enc.add(PKCSObjectIdentifiers.des_EDE3_CBC);
+        enc.add(new DEROctetString(new byte[8]));
+        ASN1EncodableVector pbes2 = new ASN1EncodableVector();
+        pbes2.add(new DERSequence(kdf));
+        pbes2.add(new DERSequence(enc));
+        ASN1EncodableVector algId = new ASN1EncodableVector();
+        algId.add(PKCSObjectIdentifiers.id_PBES2);
+        algId.add(new DERSequence(pbes2));
+        ASN1EncodableVector info = new ASN1EncodableVector();
+        info.add(new DERSequence(algId));
+        info.add(new DEROctetString(new byte[16]));
+        DERObject epki = new DERSequence(info);
+
+        return "-----BEGIN ENCRYPTED PRIVATE KEY-----\n" + new String(Base64.encode(epki.getEncoded()))
+            + "\n-----END ENCRYPTED PRIVATE KEY-----\n";
+    }
+
     public void performTest()
         throws Exception
     {
+        testPemPbes2IterationCountBound();
+
         byte[] input = Hex.decode("1234567890abcdefabcdef1234567890fedbca098765");
 
         //
