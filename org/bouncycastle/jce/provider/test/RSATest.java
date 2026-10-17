@@ -12,6 +12,9 @@ import org.bouncycastle.asn1.teletrust.TeleTrusTObjectIdentifiers;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.DigestInfo;
 import org.bouncycastle.asn1.x509.X509ObjectIdentifiers;
+import org.bouncycastle.crypto.digests.SHA256Digest;
+import org.bouncycastle.crypto.params.RSAKeyParameters;
+import org.bouncycastle.crypto.signers.RSADigestSigner;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.encoders.Hex;
 import org.bouncycastle.util.test.SimpleTest;
@@ -612,6 +615,52 @@ public class RSATest
         rawModeTest("SHA1withRSA", X509ObjectIdentifiers.id_SHA1, priv2048Key, pub2048Key, random);
         rawModeTest("MD5withRSA", PKCSObjectIdentifiers.md5, priv2048Key, pub2048Key, random);
         rawModeTest("RIPEMD128withRSA", TeleTrusTObjectIdentifiers.ripemd128, priv2048Key, pub2048Key, random);
+
+        checkNoNullDigestInfoTailBytesChecked(priv2048Key, pub2048Key);
+    }
+
+    /**
+     * A NULL-omitted DigestInfo whose hash matches the real message in every byte except the last
+     * two must NOT verify. The lenient (NULL-omitted) comparison once looped only hash.length times
+     * and skipped the final two hash bytes, so such a forgery was wrongly accepted.
+     */
+    private void checkNoNullDigestInfoTailBytesChecked(PrivateKey privKey, PublicKey pubKey)
+        throws Exception
+    {
+        byte[] msg = new byte[] { 1, 6, 3, 32, 7, 43, 2, 5, 7, 78, 4, 23 };
+
+        byte[] hash = MessageDigest.getInstance("SHA-256", "BC").digest(msg);
+
+        // Flip the last two hash bytes - everything else (header, OID, leading hash bytes) is unchanged.
+        byte[] tampered = Arrays.clone(hash);
+        tampered[tampered.length - 1] ^= 0x01;
+        tampered[tampered.length - 2] ^= 0x80;
+
+        // Sign the tampered hash in the non-compliant no-NULL DigestInfo form.
+        DigestInfo loose = new DigestInfo(new AlgorithmIdentifier(NISTObjectIdentifiers.id_sha256), tampered);
+        byte[] looseEnc = loose.getEncoded(ASN1Encodable.DER);
+
+        Signature rawSig = Signature.getInstance("RSA", "BC");
+        rawSig.initSign(privKey);
+        rawSig.update(looseEnc);
+        byte[] forgedSig = rawSig.sign();
+
+        // Verifying against the real message must fail - the last two hash bytes differ.
+        RSAPublicKey rsaPub = (RSAPublicKey)pubKey;
+        RSADigestSigner verifier = new RSADigestSigner(new SHA256Digest());
+        verifier.init(false, new RSAKeyParameters(false, rsaPub.getModulus(), rsaPub.getPublicExponent()));
+        verifier.update(msg, 0, msg.length);
+        boolean lightweight = verifier.verifySignature(forgedSig);
+
+        Signature jceSig = Signature.getInstance("SHA256withRSA", "BC");
+        jceSig.initVerify(pubKey);
+        jceSig.update(msg);
+        boolean jce = jceSig.verify(forgedSig);
+
+        if (lightweight || jce)
+        {
+            fail("no-NULL DigestInfo with wrong final hash bytes must be rejected: RSADigestSigner " + lightweight + ", SHA256withRSA " + jce);
+        }
     }
 
     private void oaepCompatibilityTest(String digest, PrivateKey privKey, PublicKey pubKey)

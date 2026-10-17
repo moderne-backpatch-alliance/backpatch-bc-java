@@ -187,7 +187,9 @@ public class JDKDigestSignature
             expected[1] -= 2;      // adjust lengths
             expected[3] -= 2;
 
-            for (int i = 0; i < hash.length; i++)
+            // Compare the whole trailing OCTET STRING - tag, length and every hash byte. That region
+            // is hash.length + 2 bytes
+            for (int i = 0; i < hash.length + 2; i++)
             {
                 if (sig[sigOffset + i] != expected[expectedOffset + i])  // check hash
                 {
