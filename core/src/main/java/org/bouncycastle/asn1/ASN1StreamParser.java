@@ -9,7 +9,14 @@ import java.io.InputStream;
  */
 public class ASN1StreamParser
 {
+    static ASN1StreamParser createSubParser(InputStream sub, int parentDepth, int limit)
+        throws IOException
+    {
+        return new ASN1StreamParser(sub, StreamUtil.decrementDepth(parentDepth), limit);
+    }
+
     private final InputStream _in;
+    private final int         _depth;
     private final int         _limit;
     private final byte[][] tmpBuffers;
 
@@ -23,7 +30,13 @@ public class ASN1StreamParser
         InputStream in,
         int         limit)
     {
+        this(in, StreamUtil.findDepth(), limit);
+    }
+
+    ASN1StreamParser(InputStream in, int depth, int limit)
+    {
         this._in = in;
+        this._depth = depth;
         this._limit = limit;
 
         this.tmpBuffers = new byte[11][];
@@ -153,7 +166,7 @@ public class ASN1StreamParser
             }
 
             IndefiniteLengthInputStream indIn = new IndefiniteLengthInputStream(_in, _limit);
-            ASN1StreamParser sp = new ASN1StreamParser(indIn, _limit);
+            ASN1StreamParser sp = createSubParser(indIn, _depth, _limit);
 
             if ((tag & BERTags.PRIVATE) == BERTags.PRIVATE)
             {
@@ -188,7 +201,9 @@ public class ASN1StreamParser
 
             if ((tag & BERTags.TAGGED) != 0)
             {
-                return new BERTaggedObjectParser(isConstructed, tagNo, new ASN1StreamParser(defIn));
+                // a primitive tagged object has no nested contents, so it uses no depth
+                int subDepth = isConstructed ? StreamUtil.decrementDepth(_depth) : _depth;
+                return new BERTaggedObjectParser(isConstructed, tagNo, new ASN1StreamParser(defIn, subDepth, StreamUtil.findLimit(defIn)));
             }
 
             if (isConstructed)
@@ -200,13 +215,13 @@ public class ASN1StreamParser
                         //
                         // yes, people actually do this...
                         //
-                        return new BEROctetStringParser(new ASN1StreamParser(defIn));
+                        return new BEROctetStringParser(createSubParser(defIn, _depth, StreamUtil.findLimit(defIn)));
                     case BERTags.SEQUENCE:
-                        return new DLSequenceParser(new ASN1StreamParser(defIn));
+                        return new DLSequenceParser(createSubParser(defIn, _depth, StreamUtil.findLimit(defIn)));
                     case BERTags.SET:
-                        return new DLSetParser(new ASN1StreamParser(defIn));
+                        return new DLSetParser(createSubParser(defIn, _depth, StreamUtil.findLimit(defIn)));
                     case BERTags.EXTERNAL:
-                        return new DERExternalParser(new ASN1StreamParser(defIn));
+                        return new DERExternalParser(createSubParser(defIn, _depth, StreamUtil.findLimit(defIn)));
                     default:
                         throw new IOException("unknown tag " + tagNo + " encountered");
                 }

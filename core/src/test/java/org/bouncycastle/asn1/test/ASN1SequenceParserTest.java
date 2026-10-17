@@ -8,13 +8,22 @@ import java.util.Arrays;
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
+import org.bouncycastle.asn1.ASN1Encodable;
+import org.bouncycastle.asn1.ASN1Encoding;
+import org.bouncycastle.asn1.ASN1Exception;
+import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1Null;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.ASN1ParsingException;
+import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.ASN1SequenceParser;
 import org.bouncycastle.asn1.ASN1StreamParser;
 import org.bouncycastle.asn1.BERSequenceGenerator;
+import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.DERSequenceGenerator;
+import org.bouncycastle.asn1.DERTaggedObject;
 import org.bouncycastle.util.encoders.Hex;
 
 public class ASN1SequenceParserTest 
@@ -327,6 +336,119 @@ public class ASN1SequenceParserTest
        seqGen.close();
       
        assertTrue("explicit BER tag writing test failed.", Arrays.equals(berExpTagSeqData, bOut.toByteArray()));
+    }
+
+    public void testMaxConsDepthProperty()
+        throws Exception
+    {
+        byte[] dlAtLimit = dlNestedSequence(8);
+        byte[] dlOverLimit = dlNestedSequence(9);
+        byte[] berAtLimit = berNestedSequence(8);
+        byte[] berOverLimit = berNestedSequence(9);
+
+        System.setProperty("org.bouncycastle.asn1.max_cons_depth", "8");
+        try
+        {
+            new ASN1InputStream(dlAtLimit).readObject();
+            new ASN1InputStream(dlAtLimit, true).readObject().hashCode();
+            new ASN1InputStream(berAtLimit).readObject();
+
+            try
+            {
+                new ASN1InputStream(dlOverLimit).readObject();
+                fail("nested construction depth limit not enforced on DL parse");
+            }
+            catch (ASN1Exception e)
+            {
+                assertEquals("maximum nested construction level reached", e.getMessage());
+            }
+
+            ASN1Primitive lazy = new ASN1InputStream(dlOverLimit, true).readObject();
+            try
+            {
+                lazy.hashCode();
+                fail("nested construction depth limit not enforced on lazy parse");
+            }
+            catch (ASN1ParsingException e)
+            {
+                assertEquals("maximum nested construction level reached", e.getCause().getMessage());
+            }
+
+            try
+            {
+                new ASN1InputStream(berOverLimit).readObject();
+                fail("nested construction depth limit not enforced on BER parse");
+            }
+            catch (ASN1Exception e)
+            {
+                assertEquals("maximum nested construction level reached", e.getMessage());
+            }
+        }
+        finally
+        {
+            System.clearProperty("org.bouncycastle.asn1.max_cons_depth");
+        }
+    }
+
+    public void testMaxConsDepthTaggedProperty()
+        throws Exception
+    {
+        byte[] atLimit = dlNestedTagged(8);
+        byte[] overLimit = dlNestedTagged(9);
+
+        System.setProperty("org.bouncycastle.asn1.max_cons_depth", "8");
+        try
+        {
+            new ASN1InputStream(atLimit).readObject();
+
+            try
+            {
+                new ASN1InputStream(overLimit).readObject();
+                fail("nested construction depth limit not enforced on tagged objects");
+            }
+            catch (ASN1Exception e)
+            {
+                assertEquals("maximum nested construction level reached", e.getMessage());
+            }
+        }
+        finally
+        {
+            System.clearProperty("org.bouncycastle.asn1.max_cons_depth");
+        }
+    }
+
+    private static byte[] dlNestedTagged(int depth)
+        throws IOException
+    {
+        ASN1Encodable node = new DEROctetString(new byte[1]);
+        for (int i = 0; i < depth; i++)
+        {
+            node = new DERTaggedObject(true, 0, node);
+        }
+        return node.toASN1Primitive().getEncoded(ASN1Encoding.DER);
+    }
+
+    private static byte[] dlNestedSequence(int depth)
+        throws IOException
+    {
+        ASN1Encodable node = new DERSequence();
+        for (int i = 0; i < depth; i++)
+        {
+            node = new DERSequence(node);
+        }
+        return node.toASN1Primitive().getEncoded(ASN1Encoding.DER);
+    }
+
+    private static byte[] berNestedSequence(int depth)
+    {
+        // depth headers of 30 80, followed by depth end-of-contents octet pairs (the zeroed tail)
+        byte[] data = new byte[depth * 4];
+        for (int i = 0; i < depth; i++)
+        {
+            data[2 * i] = 0x30;
+            data[2 * i + 1] = (byte)0x80;
+        }
+        return data;
     }
 
     public void testSequenceWithDERNullReading()

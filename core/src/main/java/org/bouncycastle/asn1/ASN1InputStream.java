@@ -18,6 +18,7 @@ public class ASN1InputStream
     extends FilterInputStream
     implements BERTags
 {
+    private final int depth;
     private final int limit;
     private final boolean lazyEvaluate;
 
@@ -53,6 +54,11 @@ public class ASN1InputStream
         boolean lazyEvaluate)
     {
         this(new ByteArrayInputStream(input), input.length, lazyEvaluate);
+    }
+
+    ASN1InputStream(byte[] input, boolean lazyEvaluate, int depth)
+    {
+        this(new ByteArrayInputStream(input), depth, input.length, lazyEvaluate);
     }
     
     /**
@@ -95,10 +101,22 @@ public class ASN1InputStream
         int         limit,
         boolean     lazyEvaluate)
     {
+        this(input, StreamUtil.findDepth(), limit, lazyEvaluate);
+    }
+
+    private ASN1InputStream(InputStream input, int depth, int limit, boolean lazyEvaluate)
+    {
         super(input);
+
+        this.depth = depth;
         this.limit = limit;
         this.lazyEvaluate = lazyEvaluate;
         this.tmpBuffers = new byte[11][];
+    }
+
+    private ASN1InputStream createSubStream(InputStream sub, int limit, boolean lazyEvaluate) throws IOException
+    {
+        return new ASN1InputStream(sub, StreamUtil.decrementDepth(depth), limit, lazyEvaluate);
     }
 
     int getLimit()
@@ -153,7 +171,9 @@ public class ASN1InputStream
 
         if ((tag & TAGGED) != 0)
         {
-            return new ASN1StreamParser(defIn).readTaggedObject(isConstructed, tagNo);
+            // depth is used only where contents are parsed (constructed, not empty), as in readVector
+            int subDepth = (isConstructed && defIn.getRemaining() > 0) ? StreamUtil.decrementDepth(depth) : depth;
+            return new ASN1StreamParser(defIn, subDepth, StreamUtil.findLimit(defIn)).readTaggedObject(isConstructed, tagNo);
         }
 
         if (isConstructed)
@@ -185,7 +205,9 @@ public class ASN1InputStream
                 case SEQUENCE:
                     if (lazyEvaluate)
                     {
-                        return new LazyEncodedSequence(defIn.toByteArray());
+                        // an empty SEQUENCE has no contents to parse, so it uses no depth, as in readVector
+                        int contentsDepth = (defIn.getRemaining() > 0) ? StreamUtil.decrementDepth(depth) : depth;
+                        return new LazyEncodedSequence(defIn.toByteArray(), contentsDepth);
                     }
                     else
                     {
@@ -210,7 +232,7 @@ public class ASN1InputStream
             return new ASN1EncodableVector(0);
         }
 
-        ASN1InputStream subStream = new ASN1InputStream(dIn);
+        ASN1InputStream subStream = createSubStream(dIn, StreamUtil.findLimit(dIn), false);
         ASN1EncodableVector v = new ASN1EncodableVector();
         ASN1Primitive p;
         while ((p = subStream.readObject()) != null)
@@ -254,7 +276,7 @@ public class ASN1InputStream
             }
 
             IndefiniteLengthInputStream indIn = new IndefiniteLengthInputStream(this, limit);
-            ASN1StreamParser sp = new ASN1StreamParser(indIn, limit);
+            ASN1StreamParser sp = ASN1StreamParser.createSubParser(indIn, depth, limit);
 
             if ((tag & PRIVATE) == PRIVATE)
             {

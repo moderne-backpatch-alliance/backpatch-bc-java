@@ -6,8 +6,25 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.FileChannel;
 
+import org.bouncycastle.util.Properties;
+
 class StreamUtil
 {
+    private static final String MAX_CONS_DEPTH = "org.bouncycastle.asn1.max_cons_depth";
+
+    static int decrementDepth(int parentDepth) throws IOException
+    {
+        if (parentDepth <= 0)
+            throw new ASN1Exception("maximum nested construction level reached");
+        return parentDepth - 1;
+    }
+
+    static int findDepth()
+    {
+        String maxConsDepth = Properties.getPropertyValue(MAX_CONS_DEPTH);
+        return Math.max(0, (maxConsDepth != null) ? Integer.parseInt(maxConsDepth) : Integer.MAX_VALUE);
+    }
+
     private static final long  MAX_MEMORY = Runtime.getRuntime().maxMemory();
 
     /**
