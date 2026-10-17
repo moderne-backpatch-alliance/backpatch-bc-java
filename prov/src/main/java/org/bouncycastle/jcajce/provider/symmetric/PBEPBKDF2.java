@@ -1,6 +1,7 @@
 package org.bouncycastle.jcajce.provider.symmetric;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.InvalidParameterSpecException;
@@ -31,6 +32,7 @@ import org.bouncycastle.jcajce.provider.symmetric.util.PBE;
 import org.bouncycastle.jcajce.provider.util.AlgorithmProvider;
 import org.bouncycastle.jcajce.spec.PBKDF2KeySpec;
 import org.bouncycastle.util.Integers;
+import org.bouncycastle.util.Properties;
 
 public class PBEPBKDF2
 {
@@ -117,6 +119,20 @@ public class PBEPBKDF2
             throws IOException
         {
             this.params = PBKDF2Params.getInstance(ASN1Primitive.fromByteArray(params));
+
+            // The iteration count here comes from an untrusted encoding (e.g. a PBES2 keyDerivationFunc
+            // parsed straight from a wire structure) and drives a PBKDF2 derivation - one PRF invocation
+            // per iteration (RFC 8018) - so an over-sized count is a pre-auth CPU DoS. Reject a count
+            // above PBE_MAX_ITERATION_COUNT (default 10,000,000, the count RFC 8018 sec. 4.2 names as
+            // possibly appropriate for especially critical keys; NIST SP 800-132 A.2.2 gives the same
+            // "as high as can be tolerated" guidance but names no figure). Compared as a BigInteger
+            // so a value beyond the int range cannot wrap past the check.
+            BigInteger iterationCount = this.params.getIterationCount();
+            int maxIT = propertyAsInteger(Properties.PBE_MAX_ITERATION_COUNT, 10000000);
+            if (iterationCount.compareTo(BigInteger.valueOf(maxIT)) > 0)
+            {
+                throw new IOException("iteration count (" + iterationCount + ") greater than " + maxIT);
+            }
         }
 
         protected void engineInit(
@@ -176,6 +192,17 @@ public class PBEPBKDF2
                 {
                     throw new InvalidKeySpecException("positive iteration count required: "
                         + pbeSpec.getIterationCount());
+                }
+
+                // Defence in depth: bound the iteration count driving PBKDF2 (RFC 8018) so an over-sized
+                // value reaching the derivation - e.g. via an untrusted PBES2 structure - is rejected
+                // rather than run as an unbounded pre-auth CPU cost. PBE_MAX_ITERATION_COUNT defaults
+                // to 10,000,000, the count RFC 8018 sec. 4.2 names for especially critical keys.
+                int maxIT = propertyAsInteger(Properties.PBE_MAX_ITERATION_COUNT, 10000000);
+                if (pbeSpec.getIterationCount() > maxIT)
+                {
+                    throw new InvalidKeySpecException("iteration count (" + pbeSpec.getIterationCount()
+                        + ") greater than " + maxIT);
                 }
 
                 if (pbeSpec.getKeyLength() <= 0)
@@ -366,5 +393,13 @@ public class PBEPBKDF2
             provider.addAlgorithm("SecretKeyFactory.PBKDF2WITHHMACGOST3411", PREFIX + "$PBKDF2withGOST3411");
             provider.addAlgorithm("SecretKeyFactory.PBKDF2WITHHMACSM3", PREFIX + "$PBKDF2withSM3");
         }
+    }
+
+    private static int propertyAsInteger(String propertyName, int defaultValue)
+    {
+        // what Properties.asInteger(String, int) does in later releases; 1.69's Properties has no such method
+        String p = Properties.getPropertyValue(propertyName);
+
+        return (p != null) ? Integer.parseInt(p) : defaultValue;
     }
 }
