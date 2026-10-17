@@ -9,7 +9,14 @@ import java.io.InputStream;
  */
 public class ASN1StreamParser
 {
+    static ASN1StreamParser createSubParser(InputStream sub, int parentDepth, int limit, byte[][] tmpBuffers)
+        throws IOException
+    {
+        return new ASN1StreamParser(sub, StreamUtil.decrementDepth(parentDepth), limit, tmpBuffers);
+    }
+
     private final InputStream _in;
+    private final int _depth;
     private final int _limit;
     private final byte[][] tmpBuffers;
 
@@ -25,12 +32,13 @@ public class ASN1StreamParser
 
     public ASN1StreamParser(InputStream in, int limit)
     {
-        this(in, limit, new byte[11][]);
+        this(in, StreamUtil.findDepth(), limit, new byte[11][]);
     }
 
-    ASN1StreamParser(InputStream in, int limit, byte[][] tmpBuffers)
+    private ASN1StreamParser(InputStream in, int depth, int limit, byte[][] tmpBuffers)
     {
         this._in = in;
+        this._depth = depth;
         this._limit = limit;
         this.tmpBuffers = tmpBuffers;
     }
@@ -73,7 +81,7 @@ public class ASN1StreamParser
             }
 
             IndefiniteLengthInputStream indIn = new IndefiniteLengthInputStream(_in, _limit);
-            ASN1StreamParser sp = new ASN1StreamParser(indIn, _limit, tmpBuffers);
+            ASN1StreamParser sp = createSubParser(indIn, _depth, _limit, tmpBuffers);
 
             int tagClass = tagHdr & BERTags.PRIVATE;
             if (0 != tagClass)
@@ -98,7 +106,7 @@ public class ASN1StreamParser
                 return parseImplicitPrimitive(tagNo, defIn);
             }
 
-            ASN1StreamParser sp = new ASN1StreamParser(defIn, defIn.getLimit(), tmpBuffers);
+            ASN1StreamParser sp = createSubParser(defIn, _depth, defIn.getLimit(), tmpBuffers);
 
             int tagClass = tagHdr & BERTags.PRIVATE;
             if (0 != tagClass)
