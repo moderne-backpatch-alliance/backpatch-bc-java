@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.bc.EncryptedObjectStoreData;
 import org.bouncycastle.asn1.bc.ObjectStore;
 import org.bouncycastle.asn1.bc.ObjectStoreIntegrityCheck;
@@ -36,6 +37,7 @@ import org.bouncycastle.asn1.bc.PbkdMacIntegrityCheck;
 import org.bouncycastle.asn1.misc.MiscObjectIdentifiers;
 import org.bouncycastle.asn1.misc.ScryptParams;
 import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
+import org.bouncycastle.asn1.pkcs.KeyDerivationFunc;
 import org.bouncycastle.asn1.pkcs.PBES2Parameters;
 import org.bouncycastle.asn1.pkcs.PBKDF2Params;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
@@ -47,6 +49,7 @@ import org.bouncycastle.crypto.util.ScryptConfig;
 import org.bouncycastle.jcajce.BCFKSLoadStoreParameter;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.Arrays;
+import org.bouncycastle.util.Properties;
 import org.bouncycastle.util.encoders.Base64;
 import org.bouncycastle.util.encoders.Hex;
 import org.bouncycastle.util.test.SimpleTest;
@@ -1444,6 +1447,111 @@ public class BCFKSStoreTest
         doStoreUsingPBKDF2(PBKDF2Config.PRF_SHA3_512);
     }
 
+    // The integrity-MAC key is derived from KDF parameters carried in the (not-yet-verified)
+    // keystore, so an attacker-supplied cost must be bounded before the derivation runs. Stored
+    // here with modest costs, then loaded with the bound lowered below them to confirm the guard
+    // fires before the (expensive) derivation.
+    private void shouldRejectExcessiveMacKdfCost()
+        throws Exception
+    {
+        byte[] pbkdf2Enc = doStoreUsingStoreParameter(new PBKDF2Config.Builder()
+            .withPRF(PBKDF2Config.PRF_SHA512)
+            .withIterationCount(1024)
+            .withSaltLength(20).build());
+
+        String oldIt = System.getProperty(Properties.BCFKS_MAX_IT_COUNT);
+        System.setProperty(Properties.BCFKS_MAX_IT_COUNT, "100");
+        try
+        {
+            KeyStore ks = KeyStore.getInstance("BCFKS", "BC");
+            ks.load(new ByteArrayInputStream(pbkdf2Enc), testPassword);
+            fail("excessive BCFKS MAC iteration count accepted");
+        }
+        catch (IOException e)
+        {
+            isTrue("unexpected message: " + e.getMessage(), e.getMessage().indexOf("greater than 100") >= 0);
+        }
+        finally
+        {
+            restoreProperty(Properties.BCFKS_MAX_IT_COUNT, oldIt);
+        }
+
+        byte[] scryptEnc = doStoreUsingStoreParameter(new ScryptConfig.Builder(1024, 8, 1)
+            .withSaltLength(20).build());
+
+        String oldMem = System.getProperty(Properties.BCFKS_MAX_SCRYPT_MEMORY);
+        System.setProperty(Properties.BCFKS_MAX_SCRYPT_MEMORY, "1024");
+        try
+        {
+            KeyStore ks = KeyStore.getInstance("BCFKS", "BC");
+            ks.load(new ByteArrayInputStream(scryptEnc), testPassword);
+            fail("excessive BCFKS scrypt cost accepted");
+        }
+        catch (IOException e)
+        {
+            isTrue("unexpected message: " + e.getMessage(),
+                e.getMessage().indexOf("scrypt cost parameters require more than") >= 0);
+        }
+        finally
+        {
+            restoreProperty(Properties.BCFKS_MAX_SCRYPT_MEMORY, oldMem);
+        }
+    }
+
+    // Without org.bouncycastle.bcfks.max_it_count set, the default limit of 5,000,000 applies.
+    // Rewrite the iteration count in the integrity-check PBKDF2 parameters of a BCFKS encoding.
+    private byte[] withMacIterationCount(byte[] store, int iterationCount)
+        throws IOException
+    {
+        ObjectStore objStore = ObjectStore.getInstance(store);
+        PbkdMacIntegrityCheck macCheck = PbkdMacIntegrityCheck.getInstance(objStore.getIntegrityCheck().getIntegrityCheck());
+
+        PBKDF2Params params = PBKDF2Params.getInstance(macCheck.getPbkdAlgorithm().getParameters());
+        PBKDF2Params rewritten = new PBKDF2Params(params.getSalt(),
+            iterationCount, params.getKeyLength().intValue(), params.getPrf());
+
+        PbkdMacIntegrityCheck rebuilt = new PbkdMacIntegrityCheck(
+            macCheck.getMacAlgorithm(),
+            new KeyDerivationFunc(PKCSObjectIdentifiers.id_PBKDF2, rewritten),
+            macCheck.getMac());
+
+        return new ObjectStore(EncryptedObjectStoreData.getInstance(objStore.getStoreData()),
+            new ObjectStoreIntegrityCheck(rebuilt)).getEncoded(ASN1Encoding.DER);
+    }
+
+    private void shouldRejectDefaultExcessiveMacKdfCost()
+        throws Exception
+    {
+        // the writer refuses such a count too, so it is spliced into a store written with 1024
+        byte[] pbkdf2Enc = doStoreUsingStoreParameter(new PBKDF2Config.Builder()
+            .withPRF(PBKDF2Config.PRF_SHA512)
+            .withIterationCount(1024)
+            .withSaltLength(20).build());
+
+        try
+        {
+            KeyStore ks = KeyStore.getInstance("BCFKS", "BC");
+            ks.load(new ByteArrayInputStream(withMacIterationCount(pbkdf2Enc, 5000001)), testPassword);
+            fail("BCFKS MAC iteration count above the default limit accepted");
+        }
+        catch (IOException e)
+        {
+            isTrue("unexpected message: " + e.getMessage(), e.getMessage().indexOf("iteration count (5000001) greater than 5000000") >= 0);
+        }
+    }
+
+    private static void restoreProperty(String name, String old)
+    {
+        if (old == null)
+        {
+            System.clearProperty(name);
+        }
+        else
+        {
+            System.setProperty(name, old);
+        }
+    }
+
     private void doStoreUsingPBKDF2(AlgorithmIdentifier prf)
         throws Exception
     {
@@ -1587,6 +1695,8 @@ public class BCFKSStoreTest
         shouldStoreSecretKeys();
         shouldStoreUsingSCRYPT();
         shouldStoreUsingPBKDF2();
+        shouldRejectExcessiveMacKdfCost();
+        shouldRejectDefaultExcessiveMacKdfCost();
         shouldFailOnWrongPassword();
         shouldParseKWPKeyStore();
         shouldFailOnRemovesOrOverwrite();
