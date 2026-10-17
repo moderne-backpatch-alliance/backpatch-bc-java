@@ -132,15 +132,35 @@ public abstract class ECCurve
                 System.arraycopy(encoded, 1, xEnc, 0, xEnc.length);
                 System.arraycopy(encoded, xEnc.length + 1, yEnc, 0, yEnc.length);
 
-                p = new ECPoint.Fp(this,
-                        new ECFieldElement.Fp(this.q, new BigInteger(1, xEnc)),
-                        new ECFieldElement.Fp(this.q, new BigInteger(1, yEnc)));
+                p = validatePoint(new BigInteger(1, xEnc), new BigInteger(1, yEnc));
                 break;
             default:
                 throw new RuntimeException("Invalid point encoding 0x" + Integer.toString(encoded[0], 16));
             }
 
             return p;
+        }
+
+        // an uncompressed or hybrid encoding must give a point on this curve (CVE-2015-7940)
+        private ECPoint validatePoint(BigInteger X, BigInteger Y)
+        {
+            if (X.compareTo(q) >= 0 || Y.compareTo(q) >= 0)
+            {
+                throw new IllegalArgumentException("Invalid point coordinates");
+            }
+
+            ECFieldElement x = new ECFieldElement.Fp(this.q, X);
+            ECFieldElement y = new ECFieldElement.Fp(this.q, Y);
+
+            // y^2 = x^3 + ax + b
+            ECFieldElement lhs = y.square();
+            ECFieldElement rhs = x.square().add(a).multiply(x).add(b);
+            if (!lhs.equals(rhs))
+            {
+                throw new IllegalArgumentException("Invalid point coordinates");
+            }
+
+            return new ECPoint.Fp(this, x, y);
         }
 
         public ECPoint getInfinity()
@@ -466,11 +486,7 @@ public abstract class ECCurve
                 System.arraycopy(encoded, 1, xEnc, 0, xEnc.length);
                 System.arraycopy(encoded, xEnc.length + 1, yEnc, 0, yEnc.length);
 
-                p = new ECPoint.F2m(this,
-                    new ECFieldElement.F2m(this.m, this.k1, this.k2, this.k3,
-                        new BigInteger(1, xEnc)),
-                    new ECFieldElement.F2m(this.m, this.k1, this.k2, this.k3,
-                        new BigInteger(1, yEnc)), false);
+                p = validatePoint(new BigInteger(1, xEnc), new BigInteger(1, yEnc));
                 break;
 
             default:
@@ -478,6 +494,28 @@ public abstract class ECCurve
             }
 
             return p;
+        }
+
+        // an uncompressed or hybrid encoding must give a point on this curve (CVE-2015-7940)
+        private ECPoint validatePoint(BigInteger X, BigInteger Y)
+        {
+            if (X.bitLength() > m || Y.bitLength() > m)
+            {
+                throw new IllegalArgumentException("Invalid point coordinates");
+            }
+
+            ECFieldElement x = new ECFieldElement.F2m(this.m, this.k1, this.k2, this.k3, X);
+            ECFieldElement y = new ECFieldElement.F2m(this.m, this.k1, this.k2, this.k3, Y);
+
+            // y^2 + xy = x^3 + ax^2 + b
+            ECFieldElement lhs = y.square().add(x.multiply(y));
+            ECFieldElement rhs = x.square().multiply(x).add(a.multiply(x.square())).add(b);
+            if (!lhs.equals(rhs))
+            {
+                throw new IllegalArgumentException("Invalid point coordinates");
+            }
+
+            return new ECPoint.F2m(this, x, y, false);
         }
 
         public ECPoint getInfinity()

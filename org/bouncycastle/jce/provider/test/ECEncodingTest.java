@@ -16,6 +16,7 @@ import java.util.Date;
 
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Sequence;
+import org.bouncycastle.asn1.sec.SECNamedCurves;
 import org.bouncycastle.asn1.x9.X9ECParameters;
 import org.bouncycastle.jce.X509Principal;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -23,6 +24,7 @@ import org.bouncycastle.jce.provider.JCEECPrivateKey;
 import org.bouncycastle.jce.provider.JCEECPublicKey;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.math.ec.ECCurve;
+import org.bouncycastle.math.ec.ECPoint;
 import org.bouncycastle.util.encoders.Hex;
 import org.bouncycastle.util.test.SimpleTest;
 import org.bouncycastle.x509.X509V3CertificateGenerator;
@@ -101,9 +103,76 @@ public class ECEncodingTest
         new ECCurve.F2m(571, 2, 5, 10, aTpb, bTpb, n, h);
     }
 
+    // test written for the backpatch (CVE-2015-7940): an uncompressed or hybrid point encoding off the curve is
+    // rejected, on a prime and on a binary curve
+    private void testDecodeRejectsPointOffCurve()
+    {
+        String[] curves = { "secp256r1", "sect163k1" };
+        for (int i = 0; i != curves.length; i++)
+        {
+            X9ECParameters params = SECNamedCurves.getByName(curves[i]);
+            ECCurve curve = params.getCurve();
+            ECPoint g = params.getG();
+
+            byte[] enc = uncompressed(curve.getFieldSize(), g);
+            if (!curve.decodePoint(enc).equals(g))
+            {
+                fail(curves[i] + ": generator did not decode");
+            }
+
+            byte[] bad = (byte[])enc.clone();
+            bad[bad.length - 1] ^= 0x01;
+            try
+            {
+                curve.decodePoint(bad);
+                fail(curves[i] + ": point off the curve decoded");
+            }
+            catch (IllegalArgumentException e)
+            {
+                // expected
+            }
+
+            byte[] hybrid = (byte[])enc.clone();
+            hybrid[0] = (byte)(0x06 | (g.getY().toBigInteger().testBit(0) ? 1 : 0));
+            if (!curve.decodePoint(hybrid).equals(g))
+            {
+                fail(curves[i] + ": hybrid generator did not decode");
+            }
+            hybrid[hybrid.length - 1] ^= 0x01;
+            try
+            {
+                curve.decodePoint(hybrid);
+                fail(curves[i] + ": hybrid point off the curve decoded");
+            }
+            catch (IllegalArgumentException e)
+            {
+                // expected
+            }
+        }
+    }
+
+    private static byte[] uncompressed(int fieldSize, ECPoint p)
+    {
+        int len = (fieldSize + 7) / 8;
+        byte[] enc = new byte[1 + 2 * len];
+        enc[0] = 0x04;
+        copyUnsigned(p.getX().toBigInteger(), enc, 1, len);
+        copyUnsigned(p.getY().toBigInteger(), enc, 1 + len, len);
+        return enc;
+    }
+
+    private static void copyUnsigned(BigInteger v, byte[] out, int off, int len)
+    {
+        byte[] b = v.toByteArray();
+        int skip = (b.length > len) ? b.length - len : 0;
+        System.arraycopy(b, skip, out, off + len - (b.length - skip), b.length - skip);
+    }
+
     public void performTest()
         throws Exception
     {
+        testDecodeRejectsPointOffCurve();
+
         testLargeMInF2m();
 
         byte[] ecParams = Hex.decode("3081C8020101302806072A8648CE3D0101021D00D7C134AA264366862A18302575D1D787B09F075797DA89F57EC8C0FF303C041C68A5E62CA9CE6C1C299803A6C1530B514E182AD8B0042A59CAD29F43041C2580F63CCFE44138870713B1A92369E33E2135D266DBB372386C400B0439040D9029AD2C7E5CF4340823B2A87DC68C9E4CE3174C1E6EFDEE12C07D58AA56F772C0726F24C6B89E4ECDAC24354B9E99CAA3F6D3761402CD021D00D7C134AA264366862A18302575D0FB98D116BC4B6DDEBCA3A5A7939F020101");
