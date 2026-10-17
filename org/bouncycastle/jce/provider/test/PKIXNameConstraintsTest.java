@@ -1,27 +1,43 @@
 package org.bouncycastle.jce.provider.test;
 
+import java.math.BigInteger;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.PrivateKey;
 import java.security.Security;
+import java.security.cert.CertPathValidator;
+import java.security.cert.CertPathValidatorException;
 import java.security.cert.CertPath;
 import java.security.cert.CertificateFactory;
 import java.security.cert.PKIXParameters;
 import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.Vector;
+
+import javax.security.auth.x500.X500Principal;
 
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERSequence;
+import org.bouncycastle.asn1.x509.BasicConstraints;
 import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.asn1.x509.GeneralSubtree;
+import org.bouncycastle.asn1.x509.KeyUsage;
+import org.bouncycastle.asn1.x509.NameConstraints;
+import org.bouncycastle.asn1.x509.X509Extensions;
 import org.bouncycastle.i18n.LocalizedMessage;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.provider.PKIXNameConstraintValidator;
 import org.bouncycastle.jce.provider.PKIXNameConstraintValidatorException;
 import org.bouncycastle.util.test.SimpleTest;
 import org.bouncycastle.x509.PKIXCertPathReviewer;
+import org.bouncycastle.x509.X509V3CertificateGenerator;
 
 /**
  * Test class for {@link PKIXNameConstraintValidator}.
@@ -234,6 +250,146 @@ public class PKIXNameConstraintsTest
 
         testNameConstraintBypasses();
         testDNSTrailingDot();
+        testNameConstraintsAppliedToLeaf();
+    }
+
+    /**
+     * CVE-2026-71889: upstream 06dcff2f5's test for the legacy reviewer, with 1.46's X509V3CertificateGenerator
+     * in place of the bcpkix certificate builder.
+     *
+     * RFC 5280 sec. 6.1.3 (b) and (c) apply the accumulated name constraints to every
+     * certificate in the path, the target certificate included - the self-issued exemption in
+     * sec. 4.2.1.10 is waived for the final certificate, and sec. 6.1.5 (wrap-up) does not
+     * revisit name constraints. PKIXCertPathReviewer drove the check from a loop
+     * bound of index &gt; 0, which is the bound the CA-only steps want; index 0 is the end-entity
+     * certificate under the standard CertPath ordering, so a leaf whose subject or SAN violated
+     * its issuing CA's constraints reviewed as valid with no errors at all, while
+     * CertPathValidator("PKIX") rejected the identical chain.
+     */
+    private void testNameConstraintsAppliedToLeaf()
+        throws Exception
+    {
+        if (Security.getProvider("BC") == null)
+        {
+            Security.addProvider(new BouncyCastleProvider());
+        }
+
+        KeyPair rootKp = generateKeyPair();
+        KeyPair intKp = generateKeyPair();
+
+        X500Principal rootDn = new X500Principal("CN=NC Test Root CA");
+        X500Principal intDn = new X500Principal("CN=NC Constrained Intermediate CA");
+
+        X509Certificate rootCert = generateRoot(rootDn, rootKp);
+        X509Certificate intCert = generateConstrainedCA(rootDn, rootKp, intDn, intKp, "partner-a.example.com");
+
+        Set trust = new HashSet();
+        trust.add(new TrustAnchor(rootCert, null));
+
+        // a leaf the constrained CA was never authorised to vouch for
+        CertPath badPath = generatePath(intDn, intKp, intCert, "attacker.evil.com");
+
+        PKIXParameters badParam = new PKIXParameters(trust);
+        badParam.setRevocationEnabled(false);
+
+        // ground truth: the trust-deciding validator rejects it
+        try
+        {
+            CertPathValidator.getInstance("PKIX", "BC").validate(badPath, badParam);
+            fail("CertPathValidator accepted a name-constraint-violating leaf");
+        }
+        catch (CertPathValidatorException e)
+        {
+            // expected
+        }
+
+        PKIXCertPathReviewer legacy = new PKIXCertPathReviewer();
+        legacy.init(badPath, badParam);
+        if (legacy.isValidCertPath())
+        {
+            fail("legacy reviewer accepted a name-constraint-violating leaf");
+        }
+        if (!hasErrorId(new List[]{ legacy.getErrors(0) }, "CertPathReviewer.notPermittedEmail"))
+        {
+            fail("legacy reviewer did not report the violation against the leaf");
+        }
+
+        // compatibility control: a leaf inside the permitted subtree still reviews as valid
+        CertPath goodPath = generatePath(intDn, intKp, intCert, "host.partner-a.example.com");
+
+        PKIXParameters goodParam = new PKIXParameters(trust);
+        goodParam.setRevocationEnabled(false);
+
+        CertPathValidator.getInstance("PKIX", "BC").validate(goodPath, goodParam);
+
+        PKIXCertPathReviewer okLegacy = new PKIXCertPathReviewer();
+        okLegacy.init(goodPath, goodParam);
+        if (!okLegacy.isValidCertPath())
+        {
+            fail("legacy reviewer rejected a compliant leaf");
+        }
+    }
+
+    private static KeyPair generateKeyPair()
+        throws Exception
+    {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA", "BC");
+        kpg.initialize(2048);
+        return kpg.generateKeyPair();
+    }
+
+    private static X509V3CertificateGenerator newGenerator(X500Principal issuerDn, BigInteger serial, X500Principal subjectDn, KeyPair subjectKp)
+    {
+        X509V3CertificateGenerator gen = new X509V3CertificateGenerator();
+        gen.setSerialNumber(serial);
+        gen.setIssuerDN(issuerDn);
+        gen.setNotBefore(new Date(System.currentTimeMillis() - 86400000L));
+        gen.setNotAfter(new Date(System.currentTimeMillis() + 86400000L * 3650));
+        gen.setSubjectDN(subjectDn);
+        gen.setPublicKey(subjectKp.getPublic());
+        gen.setSignatureAlgorithm("SHA256WithRSAEncryption");
+        return gen;
+    }
+
+    private static X509Certificate generateRoot(X500Principal rootDn, KeyPair rootKp)
+        throws Exception
+    {
+        X509V3CertificateGenerator gen = newGenerator(rootDn, BigInteger.valueOf(1), rootDn, rootKp);
+        gen.addExtension(X509Extensions.BasicConstraints, true, new BasicConstraints(true));
+        gen.addExtension(X509Extensions.KeyUsage, true, new KeyUsage(KeyUsage.keyCertSign | KeyUsage.cRLSign));
+        return gen.generate(rootKp.getPrivate(), "BC");
+    }
+
+    private static X509Certificate generateConstrainedCA(X500Principal issuerDn, KeyPair issuerKp,
+        X500Principal subjectDn, KeyPair subjectKp, String permittedDns)
+        throws Exception
+    {
+        X509V3CertificateGenerator gen = newGenerator(issuerDn, BigInteger.valueOf(2), subjectDn, subjectKp);
+        gen.addExtension(X509Extensions.BasicConstraints, true, new BasicConstraints(0));
+        gen.addExtension(X509Extensions.KeyUsage, true, new KeyUsage(KeyUsage.keyCertSign | KeyUsage.cRLSign));
+        Vector permitted = new Vector();
+        permitted.addElement(new GeneralSubtree(new GeneralName(GeneralName.dNSName, permittedDns)));
+        gen.addExtension(X509Extensions.NameConstraints, true, new NameConstraints(permitted, null));
+        return gen.generate(issuerKp.getPrivate(), "BC");
+    }
+
+    private static CertPath generatePath(X500Principal issuerDn, KeyPair issuerKp, X509Certificate issuerCert,
+        String leafDns)
+        throws Exception
+    {
+        KeyPair leafKp = generateKeyPair();
+        X509V3CertificateGenerator gen = newGenerator(issuerDn, BigInteger.valueOf(3), new X500Principal("CN=" + leafDns), leafKp);
+        gen.addExtension(X509Extensions.BasicConstraints, true, new BasicConstraints(false));
+        gen.addExtension(X509Extensions.KeyUsage, true, new KeyUsage(KeyUsage.digitalSignature));
+        gen.addExtension(X509Extensions.SubjectAlternativeName, false,
+            new GeneralNames(new GeneralName(GeneralName.dNSName, leafDns)));
+        X509Certificate leafCert = gen.generate(issuerKp.getPrivate(), "BC");
+
+        List chain = new ArrayList();
+        chain.add(leafCert);
+        chain.add(issuerCert);
+
+        return CertificateFactory.getInstance("X.509", "BC").generateCertPath(chain);
     }
 
     // CVE-2026-8763: upstream 2c28b253a's test
