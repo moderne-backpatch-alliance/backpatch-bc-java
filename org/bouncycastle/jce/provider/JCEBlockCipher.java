@@ -25,7 +25,7 @@ import org.bouncycastle.crypto.BufferedBlockCipher;
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.DataLengthException;
 import org.bouncycastle.crypto.InvalidCipherTextException;
-import org.bouncycastle.crypto.engines.AESFastEngine;
+import org.bouncycastle.crypto.engines.AESEngine;
 import org.bouncycastle.crypto.engines.DESEngine;
 import org.bouncycastle.crypto.engines.DESedeEngine;
 import org.bouncycastle.crypto.engines.GOST28147Engine;
@@ -915,7 +915,7 @@ public class JCEBlockCipher extends WrapCipherSpi
     {
         public PBEWithAESCBC()
         {
-            super(new CBCBlockCipher(new AESFastEngine()));
+            super(new CBCBlockCipher(new AESEngine()));
         }
     }
 

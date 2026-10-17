@@ -14,6 +14,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.security.Key;
 import java.security.Security;
 
@@ -286,9 +287,60 @@ public class AESTest
         }
     }
 
+    // test written for the backpatch (CVE-2016-1000339): the provider's AES classes, and the TLS client's, use the
+    // table-light AESEngine; none of them references the side-channel prone AESFastEngine any more
+    private void testNoAESFastEngine()
+        throws Exception
+    {
+        String[] classes = {
+            "org/bouncycastle/jce/provider/symmetric/AES$ECB.class",
+            "org/bouncycastle/jce/provider/symmetric/AES$CBC.class",
+            "org/bouncycastle/jce/provider/symmetric/AES$CFB.class",
+            "org/bouncycastle/jce/provider/symmetric/AES$OFB.class",
+            "org/bouncycastle/jce/provider/symmetric/AES$AESCMAC.class",
+            "org/bouncycastle/jce/provider/symmetric/AES$RFC3211Wrap.class",
+            "org/bouncycastle/jce/provider/JCEBlockCipher$PBEWithAESCBC.class",
+            "org/bouncycastle/crypto/tls/DefaultTlsCipherFactory.class"
+        };
+        byte[] name = "org/bouncycastle/crypto/engines/AESFastEngine".getBytes("US-ASCII");
+
+        for (int i = 0; i != classes.length; i++)
+        {
+            InputStream in = AESTest.class.getClassLoader().getResourceAsStream(classes[i]);
+            if (in == null)
+            {
+                fail("class not found: " + classes[i]);
+            }
+            ByteArrayOutputStream bOut = new ByteArrayOutputStream();
+            byte[] buf = new byte[4096];
+            int len;
+            while ((len = in.read(buf)) > 0)
+            {
+                bOut.write(buf, 0, len);
+            }
+            in.close();
+            byte[] bytes = bOut.toByteArray();
+
+            for (int j = 0; j + name.length <= bytes.length; j++)
+            {
+                int k = 0;
+                while (k < name.length && bytes[j + k] == name[k])
+                {
+                    k++;
+                }
+                if (k == name.length)
+                {
+                    fail(classes[i] + " still uses AESFastEngine");
+                }
+            }
+        }
+    }
+
     public void performTest()
         throws Exception
     {
+        testNoAESFastEngine();
+
         for (int i = 0; i != cipherTests.length; i += 4)
         {
             test(Integer.parseInt(cipherTests[i]), 
