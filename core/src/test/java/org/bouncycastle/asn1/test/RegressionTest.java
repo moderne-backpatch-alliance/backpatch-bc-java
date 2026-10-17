@@ -53,7 +53,8 @@ public class RegressionTest
         new LinkedCertificateTest(),
         new DLExternalTest(),
         new KMACParamsTest(),
-        new DERPrivateTest()
+        new DERPrivateTest(),
+        new RDNEscapeTest()
     };
 
     public static void main(String[] args)
