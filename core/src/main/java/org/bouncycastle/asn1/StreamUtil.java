@@ -21,7 +21,7 @@ class StreamUtil
 
     static int findDepth()
     {
-        return Math.max(0, Properties.asInteger(MAX_CONS_DEPTH, Integer.MAX_VALUE));
+        return Math.max(0, Properties.asInteger(MAX_CONS_DEPTH, 64));
     }
 
     /**
