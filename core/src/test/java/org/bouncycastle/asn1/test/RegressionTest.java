@@ -54,7 +54,9 @@ public class RegressionTest
         new LinkedCertificateTest(),
         new DLExternalTest(),
         new KMACParamsTest(),
-        new DERPrivateTest()
+        new DERPrivateTest(),
+        new DefiniteLengthAllocationTest(),
+        new BMPStringAllocationTest()
     };
 
     public static void main(String[] args)
