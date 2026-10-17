@@ -1,10 +1,16 @@
-package org.bouncycastle.pqc.crypto.lms;
+package org.bouncycastle.pqc.crypto.test;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 
 import junit.framework.TestCase;
+import org.bouncycastle.pqc.crypto.lms.Composer;
+import org.bouncycastle.pqc.crypto.lms.HSSPublicKeyParameters;
+import org.bouncycastle.pqc.crypto.lms.HSSSignature;
+import org.bouncycastle.pqc.crypto.lms.LMOtsParameters;
+import org.bouncycastle.pqc.crypto.lms.LMSPublicKeyParameters;
+import org.bouncycastle.pqc.crypto.lms.LMSigParameters;
 import org.bouncycastle.util.Arrays;
 
 /**

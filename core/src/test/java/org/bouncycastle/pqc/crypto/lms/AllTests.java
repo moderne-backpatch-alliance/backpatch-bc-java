@@ -20,7 +20,6 @@ public class AllTests
         suite.addTestSuite(HSSTests.class);
         suite.addTestSuite(LMSKeyGenTests.class);
         suite.addTestSuite(LMSTests.class);
-        suite.addTestSuite(PublicKeyParseTest.class);
         suite.addTestSuite(TypeTests.class);
 
         return new BCTestSetup(suite);
