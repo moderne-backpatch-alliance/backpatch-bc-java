@@ -1459,6 +1459,60 @@ public class BCFKSStoreTest
     // keystore, so an attacker-supplied cost must be bounded before the derivation runs. Stored
     // here with modest costs, then loaded with the bound lowered below them to confirm the guard
     // fires before the (expensive) derivation.
+    // The MAC key size is taken from the same not-yet-verified KDF parameters as the cost, and
+    // sizes the derivation output, so an attacker-supplied keyLength has to be bounded too. It is
+    // also multiplied by 8 at the derivation call, which overflows for a large enough value and
+    // threw an unchecked NegativeArraySizeException out of KeyStore.load. The store writer only
+    // ever emits 32, so the oversized value is spliced into the encoding here.
+    private void shouldRejectExcessiveMacKeyLength()
+        throws Exception
+    {
+        byte[] pbkdf2Enc = doStoreUsingStoreParameter(new PBKDF2Config.Builder()
+            .withPRF(PBKDF2Config.PRF_SHA512)
+            .withIterationCount(1024)
+            .withSaltLength(20).build());
+
+        // 268435456 makes keyLength * 8 overflow to a negative bit count
+        BigInteger[] hostile = {BigInteger.valueOf(1025), BigInteger.valueOf(268435456)};
+
+        for (int i = 0; i != hostile.length; i++)
+        {
+            try
+            {
+                KeyStore ks = KeyStore.getInstance("BCFKS", "BC");
+                ks.load(new ByteArrayInputStream(withMacKeyLength(pbkdf2Enc, hostile[i])), testPassword);
+                fail("excessive BCFKS MAC keyLength accepted: " + hostile[i]);
+            }
+            catch (IOException e)
+            {
+                isTrue("unexpected message: " + e.getMessage(),
+                    e.getMessage().indexOf("keyLength") >= 0);
+            }
+        }
+    }
+
+    // Rewrite the keyLength in the integrity-check PBKDF2 parameters of a BCFKS encoding.
+    private byte[] withMacKeyLength(byte[] store, BigInteger keyLength)
+        throws IOException
+    {
+        ObjectStore objStore = ObjectStore.getInstance(store);
+        ObjectStoreIntegrityCheck integrityCheck = objStore.getIntegrityCheck();
+        PbkdMacIntegrityCheck macCheck = PbkdMacIntegrityCheck.getInstance(integrityCheck.getIntegrityCheck());
+
+        PBKDF2Params params = PBKDF2Params.getInstance(macCheck.getPbkdAlgorithm().getParameters());
+        PBKDF2Params rewritten = new PBKDF2Params(params.getSalt(),
+            params.getIterationCount().intValue(), keyLength.intValue(), params.getPrf());
+
+        PbkdMacIntegrityCheck rebuilt = new PbkdMacIntegrityCheck(
+            macCheck.getMacAlgorithm(),
+            new KeyDerivationFunc(PKCSObjectIdentifiers.id_PBKDF2, rewritten),
+            macCheck.getMac());
+
+        // these fixtures are password-protected, so the store data is the encrypted form
+        return new ObjectStore(EncryptedObjectStoreData.getInstance(objStore.getStoreData()),
+            new ObjectStoreIntegrityCheck(rebuilt)).getEncoded(ASN1Encoding.DER);
+    }
+
     private void shouldRejectExcessiveMacKdfCost()
         throws Exception
     {
@@ -1705,6 +1759,7 @@ public class BCFKSStoreTest
         shouldStoreUsingPBKDF2();
         shouldRejectExcessiveMacKdfCost();
         shouldRejectDefaultExcessiveMacKdfCost();
+        shouldRejectExcessiveMacKeyLength();
         shouldFailOnWrongPassword();
         shouldParseKWPKeyStore();
         shouldFailOnRemovesOrOverwrite();
