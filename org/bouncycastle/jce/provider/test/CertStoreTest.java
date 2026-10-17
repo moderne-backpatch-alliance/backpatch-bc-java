@@ -47,7 +47,7 @@ public class CertStoreTest
         String value = (String)parseDN.invoke(helper, new Object[]{ "CN=chars[*()\\\0], O=Acme", "cn" });
         if (!"chars[\\2a\\28\\29\\5c\\00]".equals(value))
         {
-            fail("LDAPStoreHelper filter value not escaped: " + value);
+            fail("LDAPStoreHelper filter value not escaped: " + value.replace('\0', '?') + " (NUL shown as ?)");
         }
 
         value = (String)parseDN.invoke(helper, new Object[]{ "CN=plain name, O=Acme", "cn" });
