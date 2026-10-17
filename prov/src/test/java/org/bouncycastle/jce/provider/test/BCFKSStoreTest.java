@@ -1498,6 +1498,26 @@ public class BCFKSStoreTest
     }
 
     // Rewrite the keyLength in the integrity-check PBKDF2 parameters of a BCFKS encoding.
+    // Rewrite the iteration count in the integrity-check PBKDF2 parameters of a BCFKS encoding.
+    private byte[] withMacIterationCount(byte[] store, int iterationCount)
+        throws IOException
+    {
+        ObjectStore objStore = ObjectStore.getInstance(store);
+        PbkdMacIntegrityCheck macCheck = PbkdMacIntegrityCheck.getInstance(objStore.getIntegrityCheck().getIntegrityCheck());
+
+        PBKDF2Params params = PBKDF2Params.getInstance(macCheck.getPbkdAlgorithm().getParameters());
+        PBKDF2Params rewritten = new PBKDF2Params(params.getSalt(),
+            iterationCount, params.getKeyLength().intValue(), params.getPrf());
+
+        PbkdMacIntegrityCheck rebuilt = new PbkdMacIntegrityCheck(
+            macCheck.getMacAlgorithm(),
+            new KeyDerivationFunc(PKCSObjectIdentifiers.id_PBKDF2, rewritten),
+            macCheck.getMac());
+
+        return new ObjectStore(EncryptedObjectStoreData.getInstance(objStore.getStoreData()),
+            new ObjectStoreIntegrityCheck(rebuilt)).getEncoded(ASN1Encoding.DER);
+    }
+
     private byte[] withMacKeyLength(byte[] store, BigInteger keyLength)
         throws IOException
     {
@@ -1570,15 +1590,16 @@ public class BCFKSStoreTest
     private void shouldRejectDefaultExcessiveMacKdfCost()
         throws Exception
     {
+        // the writer refuses such a count too, so it is spliced into a store written with 1024
         byte[] pbkdf2Enc = doStoreUsingStoreParameter(new PBKDF2Config.Builder()
             .withPRF(PBKDF2Config.PRF_SHA512)
-            .withIterationCount(5000001)
+            .withIterationCount(1024)
             .withSaltLength(20).build());
 
         try
         {
             KeyStore ks = KeyStore.getInstance("BCFKS", "BC");
-            ks.load(new ByteArrayInputStream(pbkdf2Enc), testPassword);
+            ks.load(new ByteArrayInputStream(withMacIterationCount(pbkdf2Enc, 5000001)), testPassword);
             fail("BCFKS MAC iteration count above the default limit accepted");
         }
         catch (IOException e)
