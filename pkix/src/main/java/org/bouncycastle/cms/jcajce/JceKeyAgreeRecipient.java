@@ -45,6 +45,7 @@ import org.bouncycastle.util.Pack;
 public abstract class JceKeyAgreeRecipient
     implements KeyAgreeRecipient
 {
+    private int minimumTagSizeInBits = 0;
     private static final Set possibleOldMessages = new HashSet();
 
     static
@@ -221,9 +222,26 @@ public abstract class JceKeyAgreeRecipient
         return keyCipher.unwrap(encryptedContentEncryptionKey, helper.getBaseCipherName(contentEncryptionAlgorithm), Cipher.SECRET_KEY);
     }
 
+    /**
+     * Set the minimum AEAD authentication tag size (in bits) this recipient will accept. When set, an
+     * attempt to recover AuthEnvelopedData whose content algorithm carries a shorter tag is rejected,
+     * mitigating an attacker downgrading the tag to a weaker length.
+     *
+     * @param tagSizeInBits the minimum acceptable AEAD tag size, in bits.
+     * @return this recipient.
+     */
+    public JceKeyAgreeRecipient setMinimumTagSize(int tagSizeInBits)
+    {
+        this.minimumTagSizeInBits = tagSizeInBits;
+
+        return this;
+    }
+
     protected Key extractSecretKey(AlgorithmIdentifier keyEncryptionAlgorithm, AlgorithmIdentifier contentEncryptionAlgorithm, SubjectPublicKeyInfo senderKey, ASN1OctetString userKeyingMaterial, byte[] encryptedContentEncryptionKey)
         throws CMSException
     {
+        CMSUtils.checkTagSize(contentEncryptionAlgorithm, minimumTagSizeInBits);
+
         try
         {
             AlgorithmIdentifier wrapAlg =

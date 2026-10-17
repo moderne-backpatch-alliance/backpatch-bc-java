@@ -11,6 +11,7 @@ import org.bouncycastle.operator.bc.BcSymmetricKeyUnwrapper;
 public abstract class BcKEKRecipient
     implements KEKRecipient
 {
+    private int minimumTagSizeInBits = 0;
     private SymmetricKeyUnwrapper unwrapper;
 
     public BcKEKRecipient(BcSymmetricKeyUnwrapper unwrapper)
@@ -18,9 +19,21 @@ public abstract class BcKEKRecipient
         this.unwrapper = unwrapper;
     }
 
+    /**
+     * Set the minimum AEAD authentication tag size (in bits) this recipient will accept.
+     *
+     * @param tagSizeInBits the minimum acceptable AEAD tag size, in bits.
+     */
+    protected final void setMinimumTagSizeInBits(int tagSizeInBits)
+    {
+        this.minimumTagSizeInBits = tagSizeInBits;
+    }
+
     protected CipherParameters extractSecretKey(AlgorithmIdentifier keyEncryptionAlgorithm, AlgorithmIdentifier contentEncryptionAlgorithm, byte[] encryptedContentEncryptionKey)
         throws CMSException
     {
+        CMSUtils.checkTagSize(contentEncryptionAlgorithm, minimumTagSizeInBits);
+
         try
         {
             return CMSUtils.getBcKey(unwrapper.generateUnwrappedKey(contentEncryptionAlgorithm, encryptedContentEncryptionKey));

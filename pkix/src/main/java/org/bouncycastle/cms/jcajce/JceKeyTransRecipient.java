@@ -31,6 +31,7 @@ import org.bouncycastle.util.Arrays;
 public abstract class JceKeyTransRecipient
     implements KeyTransRecipient
 {
+    private int minimumTagSizeInBits = 0;
     private PrivateKey recipientKey;
 
     protected EnvelopedDataHelper helper = new EnvelopedDataHelper(new DefaultJcaJceExtHelper());
@@ -153,9 +154,26 @@ public abstract class JceKeyTransRecipient
         return this;
     }
 
+    /**
+     * Set the minimum AEAD authentication tag size (in bits) this recipient will accept. When set, an
+     * attempt to recover AuthEnvelopedData whose content algorithm carries a shorter tag is rejected,
+     * mitigating an attacker downgrading the tag to a weaker length.
+     *
+     * @param tagSizeInBits the minimum acceptable AEAD tag size, in bits.
+     * @return this recipient.
+     */
+    public JceKeyTransRecipient setMinimumTagSize(int tagSizeInBits)
+    {
+        this.minimumTagSizeInBits = tagSizeInBits;
+
+        return this;
+    }
+
     protected Key extractSecretKey(AlgorithmIdentifier keyEncryptionAlgorithm, AlgorithmIdentifier encryptedKeyAlgorithm, byte[] encryptedEncryptionKey)
         throws CMSException
     {
+        CMSUtils.checkTagSize(encryptedKeyAlgorithm, minimumTagSizeInBits);
+
         if (CMSUtils.isGOST(keyEncryptionAlgorithm.getAlgorithm()))
         {
             try
