@@ -32,6 +32,14 @@ public class IESEngine
     /**
      * set up for use with stream mode, where the key derivation function
      * is used to provide a stream of bytes to xor with the message.
+     * <p>
+     * <b>Security note:</b> this engine is initialised with static keys on both sides (the
+     * {@link #init(boolean, CipherParameters, CipherParameters, CipherParameters)} entry point, which
+     * supplies no ephemeral component), so the key-derivation input is the same for every message, and the
+     * stream-mode keystream is identical from message to message - encrypting more than one message
+     * under a given key pair is a many-time pad and leaks plaintext relationships. The static-static mode
+     * is effectively deterministic encryption.
+     * </p>
      *
      * @param agree the key agreement used as the basis for the encryption
      * @param kdf the key derivation function used for byte generation
@@ -111,14 +119,15 @@ public class IESEngine
         {
             byte[] buf = generateKdfBytes(kParam, inLen + (macKeySize / 8));
 
+            // K2 (MAC key) from a fixed prefix, K1 (keystream) from the remainder - see encryptBlock.
             M = new byte[inLen];
 
             for (int i = 0; i != inLen; i++)
             {
-                M[i] = (byte)(in_enc[inOff + i] ^ buf[i]);
+                M[i] = (byte)(in_enc[inOff + i] ^ buf[(macKeySize / 8) + i]);
             }
 
-            macKey = new KeyParameter(buf, inLen, (macKeySize / 8));
+            macKey = new KeyParameter(buf, 0, (macKeySize / 8));
         }
         else
         {
@@ -177,15 +186,20 @@ public class IESEngine
         {
             byte[] buf = generateKdfBytes(kParam, inLen + (macKeySize / 8));
 
+            // Derive the MAC key K2 from a fixed prefix of the KDF output and the keystream K1 from
+            // the remainder. Placing K1 first (the legacy static-key layout) put K2 at a
+            // message-length-dependent offset behind the keystream, so a single known-plaintext leak
+            // of K1 also exposed the MAC key of any shorter message - a cross-message forgery in the
+            // deterministic static-key mode. A fixed K2 offset is never covered by the keystream, closing that.
             C = new byte[inLen + mac.getMacSize()];
             c_text_length = inLen;
 
             for (int i = 0; i != inLen; i++)
             {
-                C[i] = (byte)(in[inOff + i] ^ buf[i]);
+                C[i] = (byte)(in[inOff + i] ^ buf[(macKeySize / 8) + i]);
             }
 
-            macKey = new KeyParameter(buf, inLen, (macKeySize / 8));
+            macKey = new KeyParameter(buf, 0, (macKeySize / 8));
         }
         else
         {

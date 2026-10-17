@@ -12,11 +12,24 @@ import java.security.Security;
 import javax.crypto.Cipher;
 import javax.crypto.spec.DHParameterSpec;
 
+import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
+import org.bouncycastle.crypto.InvalidCipherTextException;
+import org.bouncycastle.crypto.agreement.ECDHBasicAgreement;
+import org.bouncycastle.crypto.digests.SHA1Digest;
+import org.bouncycastle.crypto.engines.IESEngine;
+import org.bouncycastle.crypto.generators.KDF2BytesGenerator;
+import org.bouncycastle.crypto.macs.HMac;
+import org.bouncycastle.crypto.params.ECDomainParameters;
+import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
+import org.bouncycastle.crypto.params.ECPublicKeyParameters;
+import org.bouncycastle.crypto.params.IESParameters;
+import org.bouncycastle.crypto.params.KeyParameter;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.jce.spec.IEKeySpec;
 import org.bouncycastle.jce.spec.IESParameterSpec;
 import org.bouncycastle.math.ec.ECCurve;
+import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Hex;
 import org.bouncycastle.util.test.SimpleTest;
 
@@ -38,9 +51,99 @@ public class IESTest
         return "IES";
     }
 
+    // CVE-2026-12816: upstream 6d9e4bbae's ECIESTest.doForgeryTest, in the provider IESTest (1.46 ships no crypto
+    // tests); 1.46's ECCurve.Fp takes no order and cofactor, and its IESEngine needs a non-null encoding vector
+    // (an empty one gives the same MAC input as upstream's null).
+    //
+    // Regression for CVD ANT-2026-WZ2GJBGD: in static-key stream mode the MAC key must not be
+    // recoverable from the keystream. The legacy layout placed the keystream K1 before the MAC key
+    // K2, so a single known-plaintext leak of K1 (= M ^ C) also exposed the MAC key of any shorter
+    // message - letting an attacker forge a valid ciphertext+tag from one observation. With K2 now
+    // taken from a fixed prefix of the KDF output, that slice of the leaked keystream is no longer
+    // the MAC key, so the constructed forgery must be rejected.
+    private void doForgeryTest()
+        throws Exception
+    {
+        BigInteger n = new BigInteger("6277101735386680763835789423176059013767194773182842284081");
+
+        ECCurve.Fp curve = new ECCurve.Fp(
+            new BigInteger("6277101735386680763835789423207666416083908700390324961279"), // q
+            new BigInteger("fffffffffffffffffffffffffffffffefffffffffffffffc", 16), // a
+            new BigInteger("64210519e59c80e70fa7e9ab72243049feb8deecc146b9b1", 16)); // b
+
+        ECDomainParameters params = new ECDomainParameters(curve,
+                curve.decodePoint(Hex.decode("03188da80eb03090f67cbf20eb43a18800f4ff0afd82ff1012")), n);
+
+        ECPrivateKeyParameters priKey = new ECPrivateKeyParameters(
+            new BigInteger("651056770906015076056810763456358567190100156695615665659"), params);
+        ECPublicKeyParameters pubKey = new ECPublicKeyParameters(
+            curve.decodePoint(Hex.decode("0262b12d60690cdcf330babab6e69763b471f994dd702d16a5")), params);
+
+        AsymmetricCipherKeyPair p1 = new AsymmetricCipherKeyPair(pubKey, priKey);
+        AsymmetricCipherKeyPair p2 = new AsymmetricCipherKeyPair(pubKey, priKey);
+
+        int macKeyBytes = 8; // 64-bit MAC key
+        // empty encoding vector, so the MAC is taken over the ciphertext only (keeps the forgery construction simple)
+        IESParameters param = new IESParameters(new byte[]{ 1, 2, 3, 4, 5, 6, 7, 8 }, new byte[0], macKeyBytes * 8);
+
+        // 1. attacker observes one known-plaintext ciphertext of length L (>= macKeyBytes)
+        byte[] knownPt = Hex.decode("000102030405060708090a0b0c0d0e0f10111213"); // L = 20
+        IESEngine enc = new IESEngine(new ECDHBasicAgreement(), new KDF2BytesGenerator(new SHA1Digest()), new HMac(new SHA1Digest()));
+        enc.init(true, p1.getPrivate(), p2.getPublic(), param);
+        byte[] ct = enc.processBlock(knownPt, 0, knownPt.length);
+
+        byte[] leaked = new byte[knownPt.length]; // recovered keystream = M ^ C over the L plaintext bytes
+        for (int i = 0; i != leaked.length; i++)
+        {
+            leaked[i] = (byte)(knownPt[i] ^ ct[i]);
+        }
+
+        // 2. forge a shorter message, assuming the legacy keystream-then-MAC-key layout
+        int forgeLen = knownPt.length - macKeyBytes; // L'
+        byte[] forgedPt = Hex.decode("ffffffffffffffffffffffff"); // 12 bytes (= L')
+        byte[] forgedC = new byte[forgeLen];
+        for (int i = 0; i != forgeLen; i++)
+        {
+            forgedC[i] = (byte)(forgedPt[i] ^ leaked[i]); // K1' = leaked[0..L']
+        }
+
+        HMac hmac = new HMac(new SHA1Digest());
+        byte[] k2 = new byte[macKeyBytes];
+        System.arraycopy(leaked, forgeLen, k2, 0, macKeyBytes);
+        hmac.init(new KeyParameter(k2)); // K2' = leaked[L'..]
+        hmac.update(forgedC, 0, forgedC.length);
+        byte[] forgedTag = new byte[hmac.getMacSize()];
+        hmac.doFinal(forgedTag, 0);
+
+        byte[] forged = new byte[forgedC.length + forgedTag.length];
+        System.arraycopy(forgedC, 0, forged, 0, forgedC.length);
+        System.arraycopy(forgedTag, 0, forged, forgedC.length, forgedTag.length);
+
+        // 3. the recipient must reject the forgery
+        IESEngine dec = new IESEngine(new ECDHBasicAgreement(), new KDF2BytesGenerator(new SHA1Digest()), new HMac(new SHA1Digest()));
+        dec.init(false, p2.getPrivate(), p1.getPublic(), param);
+        try
+        {
+            dec.processBlock(forged, 0, forged.length);
+            fail("static-key stream IES accepted a cross-message MAC forgery");
+        }
+        catch (InvalidCipherTextException expected)
+        {
+            // expected: K2 is a fixed prefix of the KDF output, not a recoverable slice of the keystream
+        }
+
+        // the genuine ciphertext still decrypts
+        if (!Arrays.areEqual(knownPt, dec.processBlock(ct, 0, ct.length)))
+        {
+            fail("static-key stream IES round trip failed");
+        }
+    }
+
     public void performTest()
         throws Exception
     {
+        doForgeryTest();
+
         KeyPairGenerator    g = KeyPairGenerator.getInstance("ECIES", "BC");
 
         ECCurve curve = new ECCurve.Fp(
