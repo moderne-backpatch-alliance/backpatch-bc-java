@@ -5,6 +5,8 @@ import java.io.EOFException;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 
 import org.bouncycastle.util.io.Streams;
 
@@ -18,8 +20,33 @@ public class ASN1InputStream
     extends FilterInputStream
     implements DERTags
 {
+    private static final String MAX_CONS_DEPTH = "org.bouncycastle.asn1.max_cons_depth";
+    private static final int DEFAULT_MAX_CONS_DEPTH = 64;
+
+    private final int depth;
     private final int limit;
     private final boolean lazyEvaluate;
+
+    static int decrementDepth(int parentDepth) throws IOException
+    {
+        if (parentDepth <= 0)
+            throw new ASN1Exception("maximum nested construction level reached");
+        return parentDepth - 1;
+    }
+
+    // 1.46 has no org.bouncycastle.util.Properties: upstream's property, read as a system property
+    static int findDepth()
+    {
+        String value = (String)AccessController.doPrivileged(new PrivilegedAction()
+        {
+            public Object run()
+            {
+                return System.getProperty(MAX_CONS_DEPTH);
+            }
+        });
+
+        return Math.max(0, (value != null) ? Integer.parseInt(value.trim()) : DEFAULT_MAX_CONS_DEPTH);
+    }
 
     static int findLimit(InputStream in)
     {
@@ -66,6 +93,11 @@ public class ASN1InputStream
     {
         this(new ByteArrayInputStream(input), input.length, lazyEvaluate);
     }
+
+    ASN1InputStream(byte[] input, boolean lazyEvaluate, int depth)
+    {
+        this(new ByteArrayInputStream(input), depth, input.length, lazyEvaluate);
+    }
     
     /**
      * Create an ASN1InputStream where no DER object will be longer than limit.
@@ -93,9 +125,21 @@ public class ASN1InputStream
         int         limit,
         boolean     lazyEvaluate)
     {
+        this(input, findDepth(), limit, lazyEvaluate);
+    }
+
+    private ASN1InputStream(InputStream input, int depth, int limit, boolean lazyEvaluate)
+    {
         super(input);
+
+        this.depth = depth;
         this.limit = limit;
         this.lazyEvaluate = lazyEvaluate;
+    }
+
+    private ASN1InputStream createSubStream(InputStream sub) throws IOException
+    {
+        return new ASN1InputStream(sub, decrementDepth(depth), findLimit(sub), false);
     }
 
     protected int readLength()
@@ -134,7 +178,10 @@ public class ASN1InputStream
 
         if ((tag & TAGGED) != 0)
         {
-            return new ASN1StreamParser(defIn).readTaggedObject(isConstructed, tagNo);
+            ASN1StreamParser sp = isConstructed
+                ? ASN1StreamParser.createSubParser(defIn, depth, findLimit(defIn))
+                : new ASN1StreamParser(defIn, depth, findLimit(defIn));
+            return sp.readTaggedObject(isConstructed, tagNo);
         }
 
         if (isConstructed)
@@ -150,7 +197,9 @@ public class ASN1InputStream
                 case SEQUENCE:
                     if (lazyEvaluate)
                     {
-                        return new LazyDERSequence(defIn.toByteArray());
+                        // as upstream, a SEQUENCE without contents costs no nesting level
+                        int contentsDepth = (defIn.getRemaining() < 1) ? depth : decrementDepth(depth);
+                        return new LazyDERSequence(defIn.toByteArray(), contentsDepth);
                     }
                     else
                     {
@@ -185,7 +234,12 @@ public class ASN1InputStream
     ASN1EncodableVector buildDEREncodableVector(
         DefiniteLengthInputStream dIn) throws IOException
     {
-        return new ASN1InputStream(dIn).buildEncodableVector();
+        if (dIn.getRemaining() < 1)
+        {
+            return new ASN1EncodableVector();
+        }
+
+        return createSubStream(dIn).buildEncodableVector();
     }
 
     public DERObject readObject()
@@ -222,7 +276,7 @@ public class ASN1InputStream
             }
 
             IndefiniteLengthInputStream indIn = new IndefiniteLengthInputStream(this, limit);
-            ASN1StreamParser sp = new ASN1StreamParser(indIn, limit);
+            ASN1StreamParser sp = ASN1StreamParser.createSubParser(indIn, depth, limit);
 
             if ((tag & APPLICATION) != 0)
             {

@@ -6,7 +6,14 @@ import java.io.InputStream;
 
 public class ASN1StreamParser
 {
+    static ASN1StreamParser createSubParser(InputStream sub, int parentDepth, int limit)
+        throws IOException
+    {
+        return new ASN1StreamParser(sub, ASN1InputStream.decrementDepth(parentDepth), limit);
+    }
+
     private final InputStream _in;
+    private final int         _depth;
     private final int         _limit;
 
     public ASN1StreamParser(
@@ -19,7 +26,13 @@ public class ASN1StreamParser
         InputStream in,
         int         limit)
     {
+        this(in, ASN1InputStream.findDepth(), limit);
+    }
+
+    ASN1StreamParser(InputStream in, int depth, int limit)
+    {
         this._in = in;
+        this._depth = depth;
         this._limit = limit;
     }
 
@@ -147,7 +160,7 @@ public class ASN1StreamParser
             }
 
             IndefiniteLengthInputStream indIn = new IndefiniteLengthInputStream(_in, _limit);
-            ASN1StreamParser sp = new ASN1StreamParser(indIn, _limit);
+            ASN1StreamParser sp = createSubParser(indIn, _depth, _limit);
 
             if ((tag & DERTags.APPLICATION) != 0)
             {
@@ -172,7 +185,9 @@ public class ASN1StreamParser
 
             if ((tag & DERTags.TAGGED) != 0)
             {
-                return new BERTaggedObjectParser(isConstructed, tagNo, new ASN1StreamParser(defIn));
+                return new BERTaggedObjectParser(isConstructed, tagNo, isConstructed
+                    ? createSubParser(defIn, _depth, ASN1InputStream.findLimit(defIn))
+                    : new ASN1StreamParser(defIn, _depth, ASN1InputStream.findLimit(defIn)));
             }
 
             if (isConstructed)
@@ -184,13 +199,13 @@ public class ASN1StreamParser
                         //
                         // yes, people actually do this...
                         //
-                        return new BEROctetStringParser(new ASN1StreamParser(defIn));
+                        return new BEROctetStringParser(createSubParser(defIn, _depth, ASN1InputStream.findLimit(defIn)));
                     case DERTags.SEQUENCE:
-                        return new DERSequenceParser(new ASN1StreamParser(defIn));
+                        return new DERSequenceParser(createSubParser(defIn, _depth, ASN1InputStream.findLimit(defIn)));
                     case DERTags.SET:
-                        return new DERSetParser(new ASN1StreamParser(defIn));
+                        return new DERSetParser(createSubParser(defIn, _depth, ASN1InputStream.findLimit(defIn)));
                     case DERTags.EXTERNAL:
-                        return new DERExternalParser(new ASN1StreamParser(defIn));
+                        return new DERExternalParser(createSubParser(defIn, _depth, ASN1InputStream.findLimit(defIn)));
                     default:
                         // TODO Add DERUnknownTagParser class?
                         return new DERUnknownTag(true, tagNo, defIn.toByteArray());

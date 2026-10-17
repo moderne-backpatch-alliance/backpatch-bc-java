@@ -7,19 +7,22 @@ public class LazyDERSequence
     extends DERSequence
 {
     private byte[] encoded;
+    private final int contentsDepth;
     private boolean parsed = false;
     private int size = -1;
 
     LazyDERSequence(
-        byte[] encoded)
+        byte[] encoded,
+        int contentsDepth)
         throws IOException
     {
         this.encoded = encoded;
+        this.contentsDepth = contentsDepth;
     }
 
     private void parse()
     {
-        Enumeration en = new LazyDERConstructionEnumeration(encoded);
+        Enumeration en = new LazyDERConstructionEnumeration(encoded, contentsDepth);
 
         while (en.hasMoreElements())
         {
@@ -46,14 +49,14 @@ public class LazyDERSequence
             return super.getObjects();
         }
 
-        return new LazyDERConstructionEnumeration(encoded);
+        return new LazyDERConstructionEnumeration(encoded, contentsDepth);
     }
 
     public int size()
     {
         if (size < 0)
         {
-            Enumeration en = new LazyDERConstructionEnumeration(encoded);
+            Enumeration en = new LazyDERConstructionEnumeration(encoded, contentsDepth);
 
             size = 0;
             while (en.hasMoreElements())

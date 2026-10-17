@@ -3,7 +3,13 @@ package org.bouncycastle.jce.provider.test;
 import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.ASN1Exception;
 import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.ASN1ParsingException;
+import org.bouncycastle.asn1.DEREncodable;
+import org.bouncycastle.asn1.DERInteger;
+import org.bouncycastle.asn1.DERObject;
+import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.DERObjectIdentifier;
 import org.bouncycastle.asn1.DERUTF8String;
 import org.bouncycastle.asn1.x500.RDN;
@@ -333,9 +339,185 @@ public class X509StreamParserTest
         return buf.toString();
     }
 
+    // CVE-2026-13506: upstream's three tests (02527424e, 77454da9b) with the nested input built here instead of read
+    // from bc-test-data (1300 levels, as upstream's nested_seq.der and nested_seq_indef.ber), plus the property
+    // and default-boundary tests written for the backpatch (as on 1.78.1)
+    private void testHeavilyDLNestedSequence()
+        throws Exception
+    {
+        try
+        {
+            new ASN1InputStream(dlNestedSequence(1300)).readObject();
+            fail("no exception");
+        }
+        catch (ASN1Exception e)
+        {
+            if (!"maximum nested construction level reached".equals(e.getMessage()))
+            {
+                fail("wrong message: " + e.getMessage());
+            }
+        }
+    }
+
+    private void testHeavilyBERNestedSequence()
+        throws Exception
+    {
+        try
+        {
+            new ASN1InputStream(berNestedSequence(1300)).readObject();
+            fail("no exception");
+        }
+        catch (ASN1Exception e)
+        {
+            if (!"maximum nested construction level reached".equals(e.getMessage()))
+            {
+                fail("wrong message: " + e.getMessage());
+            }
+        }
+    }
+
+    private void testHeavilyLazyNestedSequence()
+        throws Exception
+    {
+        // Deeply nested SEQUENCE { SEQUENCE { ... } }, well past the default max_cons_depth (64)
+        // but shallow enough that a whole-tree walk would not itself overflow the Java stack if the
+        // guard were absent -- so this proves the guard is enforced, not merely that we crash.
+        byte[] der = dlNestedSequence(256);
+
+        // The lazy parse succeeds shallowly (only the outermost level is decoded eagerly).
+        DERObject parsed = new ASN1InputStream(der, true).readObject();
+
+        // Forcing the whole tree (hashCode walks every element) must hit the same nested-construction
+        // limit the eager path enforces, raising an ASN1Exception rather than a StackOverflowError.
+        try
+        {
+            parsed.hashCode();
+            fail("nested construction depth limit not enforced on lazy parse");
+        }
+        catch (ASN1ParsingException e)
+        {
+            if (!"maximum nested construction level reached".equals(e.getCause().getMessage()))
+            {
+                fail("wrong message: " + e.getCause().getMessage());
+            }
+        }
+    }
+
+    private void testDefaultMaxConsDepth()
+        throws Exception
+    {
+        new ASN1InputStream(dlNestedSequence(64)).readObject();
+        new ASN1InputStream(dlNestedSequence(64), true).readObject().hashCode();
+        new ASN1InputStream(berNestedSequence(64)).readObject();
+
+        byte[][] tooDeep = { dlNestedSequence(65), berNestedSequence(65) };
+        for (int i = 0; i != tooDeep.length; i++)
+        {
+            try
+            {
+                new ASN1InputStream(tooDeep[i]).readObject();
+                fail("default nested construction depth limit not enforced: " + i);
+            }
+            catch (ASN1Exception e)
+            {
+                // expected
+            }
+        }
+        try
+        {
+            new ASN1InputStream(dlNestedSequence(65), true).readObject().hashCode();
+            fail("default nested construction depth limit not enforced on lazy parse");
+        }
+        catch (ASN1ParsingException e)
+        {
+            // expected
+        }
+    }
+
+    private void testMaxConsDepthProperty()
+        throws Exception
+    {
+        System.setProperty("org.bouncycastle.asn1.max_cons_depth", "8");
+        try
+        {
+            new ASN1InputStream(dlNestedSequence(8)).readObject();
+            new ASN1InputStream(dlNestedSequence(8), true).readObject().hashCode();
+            new ASN1InputStream(berNestedSequence(8)).readObject();
+            try
+            {
+                new ASN1InputStream(dlNestedSequence(9)).readObject();
+                fail("max_cons_depth 8 not enforced");
+            }
+            catch (ASN1Exception e)
+            {
+                // expected
+            }
+            try
+            {
+                new ASN1InputStream(berNestedSequence(9)).readObject();
+                fail("max_cons_depth 8 not enforced on BER");
+            }
+            catch (ASN1Exception e)
+            {
+                // expected
+            }
+            try
+            {
+                new ASN1InputStream(dlNestedSequence(9), true).readObject().hashCode();
+                fail("max_cons_depth 8 not enforced on lazy parse");
+            }
+            catch (ASN1ParsingException e)
+            {
+                // expected
+            }
+        }
+        finally
+        {
+            System.getProperties().remove("org.bouncycastle.asn1.max_cons_depth");
+        }
+    }
+
+    // n nested definite-length SEQUENCEs, the innermost holding an INTEGER
+    private static byte[] dlNestedSequence(int n)
+        throws IOException
+    {
+        DEREncodable node = new DERInteger(1);
+        for (int i = 0; i < n; i++)
+        {
+            node = new DERSequence(node);
+        }
+        return node.getDERObject().getEncoded();
+    }
+
+    // n nested indefinite-length SEQUENCEs, the innermost holding an INTEGER
+    private static byte[] berNestedSequence(int n)
+    {
+        byte[] enc = new byte[4 * n + 3];
+        int pos = 0;
+        for (int i = 0; i < n; i++)
+        {
+            enc[pos++] = 0x30;
+            enc[pos++] = (byte)0x80;
+        }
+        enc[pos++] = 0x02;
+        enc[pos++] = 0x01;
+        enc[pos++] = 0x01;
+        for (int i = 0; i < n; i++)
+        {
+            enc[pos++] = 0x00;
+            enc[pos++] = 0x00;
+        }
+        return enc;
+    }
+
     public void performTest()
         throws Exception
     {
+        testHeavilyDLNestedSequence();
+        testHeavilyBERNestedSequence();
+        testHeavilyLazyNestedSequence();
+        testDefaultMaxConsDepth();
+        testMaxConsDepthProperty();
         testRDNEscapeLinear();
         testDeclaredLengthNotAllocatedUpFront();
         testTruncatedObjectReportsExpectedMessage();
