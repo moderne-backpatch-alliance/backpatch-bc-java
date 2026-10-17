@@ -12,13 +12,14 @@ import org.bouncycastle.asn1.x509.X509Name;
 import org.bouncycastle.util.test.SimpleTest;
 
 /**
- * RDN value escaping in IETFUtils.valueToString and X509Name.toString must run in linear time and,
- * for X509Name, give the same output as the previous insert-based escaping.
+ * RDN value escaping in IETFUtils.valueToString and X509Name.toString must run in linear time
+ * (a million commas in well under 5 s; the insert-based escaping takes tens of seconds) and, for
+ * X509Name, give the same output as the previous insert-based escaping.
  */
 public class RDNEscapeTest
     extends SimpleTest
 {
-    private static final int LARGE = 500000;
+    private static final int LARGE = 1000000;
     private static final long TIME_LIMIT_MS = 5000;
 
     public String getName()
@@ -30,8 +31,12 @@ public class RDNEscapeTest
         throws Exception
     {
         testX509NameMatchesInsertEscaping();
-        testX509NameLargeValueIsLinear();
-        testIETFUtilsLargeValueIsLinear();
+
+        // both timings run before either is judged, so a failure reports both classes
+        long x509Name = timeX509NameLargeValue();
+        long ietfUtils = timeIETFUtilsLargeValue();
+        isTrue("escaping " + LARGE + " commas took " + x509Name + " ms (X509Name), " + ietfUtils + " ms (IETFUtils)",
+            x509Name < TIME_LIMIT_MS && ietfUtils < TIME_LIMIT_MS);
     }
 
     private void testX509NameMatchesInsertEscaping()
@@ -71,7 +76,7 @@ public class RDNEscapeTest
         isEquals("escaping of [" + value + "]", insertEscaped(value), actual.toString());
     }
 
-    private void testX509NameLargeValueIsLinear()
+    private long timeX509NameLargeValue()
     {
         String value = commas(LARGE);
         Vector oids = new Vector();
@@ -85,10 +90,10 @@ public class RDNEscapeTest
         long elapsed = System.currentTimeMillis() - start;
 
         isEquals("X509Name escaped length", 3 + 2 * LARGE, s.length());
-        isTrue("X509Name.toString of " + LARGE + " commas took " + elapsed + " ms", elapsed < TIME_LIMIT_MS);
+        return elapsed;
     }
 
-    private void testIETFUtilsLargeValueIsLinear()
+    private long timeIETFUtilsLargeValue()
     {
         DERUTF8String value = new DERUTF8String(commas(LARGE));
 
@@ -97,7 +102,7 @@ public class RDNEscapeTest
         long elapsed = System.currentTimeMillis() - start;
 
         isEquals("IETFUtils escaped length", 2 * LARGE, s.length());
-        isTrue("IETFUtils.valueToString of " + LARGE + " commas took " + elapsed + " ms", elapsed < TIME_LIMIT_MS);
+        return elapsed;
     }
 
     private static String commas(int n)
