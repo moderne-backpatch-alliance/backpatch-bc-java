@@ -1,6 +1,8 @@
 package org.bouncycastle.math.ec;
 
 import java.math.BigInteger;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.Random;
 
 /**
@@ -351,6 +353,11 @@ public abstract class ECCurve
             BigInteger n,
             BigInteger h)
         {
+            if (m > getMaxFieldSize())
+            {
+                throw new IllegalArgumentException("field size out of range: " + m);
+            }
+
             this.m = m;
             this.k1 = k1;
             this.k2 = k2;
@@ -391,6 +398,20 @@ public abstract class ECCurve
         public int getFieldSize()
         {
             return m;
+        }
+
+        // 1.46 has no org.bouncycastle.util.Properties: upstream's property, read as a system property
+        private static int getMaxFieldSize()
+        {
+            String maxFieldSize = (String)AccessController.doPrivileged(new PrivilegedAction()
+            {
+                public Object run()
+                {
+                    return System.getProperty("org.bouncycastle.ec.max_f2m_field_size");
+                }
+            });
+
+            return (maxFieldSize != null) ? Integer.parseInt(maxFieldSize) : 1142;  // twice 571
         }
 
         public ECFieldElement fromBigInteger(BigInteger x)

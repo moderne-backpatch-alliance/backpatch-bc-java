@@ -75,9 +75,37 @@ public class ECEncodingTest
         ks[2] = k1;
     }
     
+    // CVE-2024-29857: upstream fee80dd23's ECPointTest.testLargeMInF2m, with the fail() the upstream test lacks
+    private void testLargeMInF2m()
+    {
+        int m = 2048;
+        int k1 = 1;
+        BigInteger aTpb = new BigInteger("1000", 2);
+        BigInteger bTpb = new BigInteger("1001", 2);
+        BigInteger n = new BigInteger("23");
+        BigInteger h = new BigInteger("1");
+
+        try
+        {
+            new ECCurve.F2m(m, k1, aTpb, bTpb, n, h);
+            fail("F2m curve with m = 2048 accepted");
+        }
+        catch (IllegalArgumentException e)
+        {
+            if (!"field size out of range: 2048".equals(e.getMessage()))
+            {
+                fail("wrong message: " + e.getMessage());
+            }
+        }
+
+        new ECCurve.F2m(571, 2, 5, 10, aTpb, bTpb, n, h);
+    }
+
     public void performTest()
         throws Exception
     {
+        testLargeMInF2m();
+
         byte[] ecParams = Hex.decode("3081C8020101302806072A8648CE3D0101021D00D7C134AA264366862A18302575D1D787B09F075797DA89F57EC8C0FF303C041C68A5E62CA9CE6C1C299803A6C1530B514E182AD8B0042A59CAD29F43041C2580F63CCFE44138870713B1A92369E33E2135D266DBB372386C400B0439040D9029AD2C7E5CF4340823B2A87DC68C9E4CE3174C1E6EFDEE12C07D58AA56F772C0726F24C6B89E4ECDAC24354B9E99CAA3F6D3761402CD021D00D7C134AA264366862A18302575D0FB98D116BC4B6DDEBCA3A5A7939F020101");
         testParams(ecParams, true);
         
