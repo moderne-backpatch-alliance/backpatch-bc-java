@@ -1,6 +1,7 @@
 package org.bouncycastle.pkcs.jcajce;
 
 import java.io.OutputStream;
+import java.math.BigInteger;
 import java.security.Provider;
 import java.security.SecureRandom;
 
@@ -26,6 +27,7 @@ import org.bouncycastle.operator.MacAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.MacCalculator;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.util.BigIntegers;
+import org.bouncycastle.util.Properties;
 
 /**
  * A builder for RFC 8018 PBE based MAC calculators.
@@ -186,7 +188,12 @@ public class JcePBMac1CalculatorBuilder
             {
                 salt = pbeParams.getSalt();
                 iterationCount = BigIntegers.intValueExact(pbeParams.getIterationCount());
-                keySize = BigIntegers.intValueExact(pbeParams.getKeyLength()) * 8;
+                int maxIT = Properties.asInteger(Properties.PBE_MAX_ITERATION_COUNT, 10000000);
+                if (iterationCount > maxIT)
+                {
+                    throw new OperatorCreationException("iteration count (" + iterationCount + ") greater than " + maxIT);
+                }
+                keySize = validateKeyLength(pbeParams.getKeyLength()) * 8;
             }
             
             SecretKeyFactory secFact = helper.createSecretKeyFactory("PBKDF2");
@@ -225,5 +232,24 @@ public class JcePBMac1CalculatorBuilder
         {
             throw new OperatorCreationException("unable to create MAC calculator: " + e.getMessage(), e);
         }
+    }
+
+    // A PBMAC1 MAC key is 20-64 bytes; anything beyond this is rejected as abusive. The keyLength
+    // arrives unauthenticated and is multiplied by 8 above, which overflows for a large value.
+    private static final BigInteger MAX_KEY_LENGTH = BigInteger.valueOf(1024);
+
+    private static int validateKeyLength(BigInteger keyLength)
+    {
+        if (keyLength == null || keyLength.signum() <= 0)
+        {
+            throw new IllegalStateException("keyLength must be positive");
+        }
+
+        if (keyLength.compareTo(MAX_KEY_LENGTH) > 0)
+        {
+            throw new IllegalStateException("keyLength " + keyLength + " greater than " + MAX_KEY_LENGTH);
+        }
+
+        return BigIntegers.intValueExact(keyLength);
     }
 }
