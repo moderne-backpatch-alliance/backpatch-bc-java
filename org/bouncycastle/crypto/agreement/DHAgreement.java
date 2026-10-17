@@ -106,7 +106,13 @@ public class DHAgreement
         BigInteger peerMessage = validatePeerValue(message);
         BigInteger peerY = validatePeerValue(pub.getY());
 
-        return peerMessage.modPow(key.getX(), p).multiply(peerY.modPow(privateValue, p)).mod(p);
+        BigInteger result = peerY.modPow(privateValue, p);
+        if (result.compareTo(ONE) == 0)
+        {
+            throw new IllegalStateException("Shared key can't be 1");
+        }
+
+        return peerMessage.modPow(key.getX(), p).multiply(result).mod(p);
     }
 
     // 1.46's DHPublicKeyParameters does not validate Y, so the checks of later releases' constructor are made here

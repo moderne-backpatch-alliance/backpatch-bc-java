@@ -20,6 +20,7 @@ import java.security.spec.ECParameterSpec;
 import java.security.spec.EllipticCurve;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.security.InvalidKeyException;
 
 import javax.crypto.KeyAgreement;
 import javax.crypto.SecretKey;
@@ -28,6 +29,7 @@ import javax.crypto.interfaces.DHPublicKey;
 import javax.crypto.spec.DESKeySpec;
 import javax.crypto.spec.DESedeKeySpec;
 import javax.crypto.spec.DHParameterSpec;
+import javax.crypto.spec.DHPublicKeySpec;
 
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.crypto.agreement.DHAgreement;
@@ -662,6 +664,60 @@ public class DHTest
         }
     }
 
+    // test written for the backpatch (CVE-2016-1000346): peer DH public values are validated
+    private void testInvalidPeerKeys()
+        throws Exception
+    {
+        DHParameters noQ = new DHParameters(p512, g512);
+        BigInteger[] bad = new BigInteger[]{ BigInteger.valueOf(0), BigInteger.valueOf(1), p512.subtract(BigInteger.valueOf(1)), p512 };
+        for (int i = 0; i != bad.length; i++)
+        {
+            try
+            {
+                new DHPublicKeyParameters(bad[i], noQ);
+                fail("DHPublicKeyParameters accepted Y " + bad[i]);
+            }
+            catch (IllegalArgumentException e)
+            {
+                // expected
+            }
+        }
+
+        // p = 2q + 1 = 23, g = 4 generates the subgroup of order 11; 5 is outside it, 3 = 4^4 is inside
+        DHParameters withQ = new DHParameters(BigInteger.valueOf(23), BigInteger.valueOf(4), BigInteger.valueOf(11));
+        try
+        {
+            new DHPublicKeyParameters(BigInteger.valueOf(5), withQ);
+            fail("DHPublicKeyParameters accepted Y outside the subgroup");
+        }
+        catch (IllegalArgumentException e)
+        {
+            // expected
+        }
+        new DHPublicKeyParameters(BigInteger.valueOf(3), withQ);
+
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("DH", "BC");
+        keyGen.initialize(new DHParameterSpec(p512, g512));
+        KeyPair kp = keyGen.generateKeyPair();
+        KeyFactory keyFac = KeyFactory.getInstance("DH", "BC");
+        BigInteger[] badJce = new BigInteger[]{ BigInteger.valueOf(1), p512.subtract(BigInteger.valueOf(1)) };
+        for (int i = 0; i != badJce.length; i++)
+        {
+            Key peer = keyFac.generatePublic(new DHPublicKeySpec(badJce[i], p512, g512));
+            KeyAgreement agreement = KeyAgreement.getInstance("DH", "BC");
+            agreement.init(kp.getPrivate());
+            try
+            {
+                agreement.doPhase(peer, true);
+                fail("KeyAgreement accepted peer Y " + badJce[i]);
+            }
+            catch (InvalidKeyException e)
+            {
+                // expected
+            }
+        }
+    }
+
     private static DHKeyPairGenerator getDHKeyPairGenerator(BigInteger g, BigInteger p)
     {
         DHParameters dhParams = new DHParameters(p, g);
@@ -709,6 +765,7 @@ public class DHTest
         testDESAndDESede(g768, p768);
         testInitialise();
         testMaliciousMessage();
+        testInvalidPeerKeys();
     }
 
     public static void main(
