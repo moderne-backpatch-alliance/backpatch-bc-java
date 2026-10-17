@@ -35,7 +35,9 @@ import org.bouncycastle.asn1.eac.EACObjectIdentifiers;
 import org.bouncycastle.asn1.teletrust.TeleTrusTObjectIdentifiers;
 import org.bouncycastle.asn1.x9.X9ObjectIdentifiers;
 import org.bouncycastle.crypto.params.DSAParameters;
+import org.bouncycastle.crypto.params.DSAPrivateKeyParameters;
 import org.bouncycastle.crypto.params.DSAPublicKeyParameters;
+import org.bouncycastle.crypto.params.ParametersWithRandom;
 import org.bouncycastle.crypto.signers.DSASigner;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.spec.ECParameterSpec;
@@ -207,6 +209,51 @@ public class DSATest
             {
                 fail("sig with non-minimal integer verified: " + i);
             }
+        }
+    }
+
+    // test written for the backpatch (CVE-2016-1000341): signing draws a randomizer besides k, and r is unchanged
+    private void testSignatureRandomizer()
+        throws Exception
+    {
+        DSAParameters params = new DSAParameters(PRIVATE_KEY.getP(), PRIVATE_KEY.getQ(), PRIVATE_KEY.getG());
+        final int[] drawn = new int[1];
+        SecureRandom ones = new SecureRandom()
+        {
+            public void nextBytes(byte[] bytes)
+            {
+                for (int i = 0; i != bytes.length; i++)
+                {
+                    bytes[i] = 0x01;
+                }
+                drawn[0] += bytes.length;
+            }
+        };
+        int kBytes = (params.getQ().bitLength() + 7) / 8;
+        byte[] kData = new byte[kBytes];
+        for (int i = 0; i != kData.length; i++)
+        {
+            kData[i] = 0x01;
+        }
+        BigInteger k = new BigInteger(1, kData);
+        byte[] msg = Hex.decode("a9993e364706816aba3e25717850c26c9cd0d89d");
+
+        DSASigner signer = new DSASigner();
+        signer.init(true, new ParametersWithRandom(new DSAPrivateKeyParameters(PRIVATE_KEY.getX(), params), ones));
+        BigInteger[] rs = signer.generateSignature(msg);
+
+        if (!rs[0].equals(params.getG().modPow(k, params.getP()).mod(params.getQ())))
+        {
+            fail("randomizer changed r");
+        }
+        signer.init(false, new DSAPublicKeyParameters(PUBLIC_KEY.getY(), params));
+        if (!signer.verifySignature(msg, rs[0], rs[1]))
+        {
+            fail("randomized signature not verified");
+        }
+        if (drawn[0] <= kBytes)
+        {
+            fail("no randomizer drawn: " + drawn[0] + " bytes for a " + kBytes + " byte k");
         }
     }
 
@@ -948,6 +995,7 @@ public class DSATest
         testParameters();
         testModified();
         testNonMinimalIntegers();
+        testSignatureRandomizer();
     }
 
     protected BigInteger[] derDecode(
