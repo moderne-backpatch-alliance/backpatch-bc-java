@@ -16,13 +16,17 @@ import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
 import org.bouncycastle.crypto.InvalidCipherTextException;
 import org.bouncycastle.crypto.agreement.ECDHBasicAgreement;
 import org.bouncycastle.crypto.digests.SHA1Digest;
+import org.bouncycastle.crypto.engines.AESEngine;
 import org.bouncycastle.crypto.engines.IESEngine;
 import org.bouncycastle.crypto.generators.KDF2BytesGenerator;
 import org.bouncycastle.crypto.macs.HMac;
+import org.bouncycastle.crypto.modes.CBCBlockCipher;
+import org.bouncycastle.crypto.paddings.PaddedBufferedBlockCipher;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
 import org.bouncycastle.crypto.params.ECPublicKeyParameters;
 import org.bouncycastle.crypto.params.IESParameters;
+import org.bouncycastle.crypto.params.IESWithCipherParameters;
 import org.bouncycastle.crypto.params.KeyParameter;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.spec.ECParameterSpec;
@@ -139,10 +143,70 @@ public class IESTest
         }
     }
 
+    // test written for the backpatch (CVE-2016-1000345): in block-cipher mode the MAC is checked before the
+    // padding, so a ciphertext with a broken MAC and broken padding reports the MAC, not the padding
+    private void doMacBeforePaddingTest()
+        throws Exception
+    {
+        BigInteger n = new BigInteger("6277101735386680763835789423176059013767194773182842284081");
+
+        ECCurve.Fp curve = new ECCurve.Fp(
+            new BigInteger("6277101735386680763835789423207666416083908700390324961279"), // q
+            new BigInteger("fffffffffffffffffffffffffffffffefffffffffffffffc", 16), // a
+            new BigInteger("64210519e59c80e70fa7e9ab72243049feb8deecc146b9b1", 16)); // b
+
+        ECDomainParameters params = new ECDomainParameters(curve,
+                curve.decodePoint(Hex.decode("03188da80eb03090f67cbf20eb43a18800f4ff0afd82ff1012")), n);
+
+        ECPrivateKeyParameters priKey = new ECPrivateKeyParameters(
+            new BigInteger("651056770906015076056810763456358567190100156695615665659"), params);
+        ECPublicKeyParameters pubKey = new ECPublicKeyParameters(
+            curve.decodePoint(Hex.decode("0262b12d60690cdcf330babab6e69763b471f994dd702d16a5")), params);
+
+        IESWithCipherParameters param = new IESWithCipherParameters(new byte[]{ 1, 2, 3, 4, 5, 6, 7, 8 },
+            new byte[]{ 8, 7, 6, 5, 4, 3, 2, 1 }, 64, 128);
+        byte[] message = Hex.decode("000102030405060708090a0b0c0d0e0f10111213");
+
+        IESEngine enc = new IESEngine(new ECDHBasicAgreement(), new KDF2BytesGenerator(new SHA1Digest()),
+            new HMac(new SHA1Digest()), new PaddedBufferedBlockCipher(new CBCBlockCipher(new AESEngine())));
+        enc.init(true, priKey, pubKey, param);
+        byte[] ct = enc.processBlock(message, 0, message.length);
+
+        IESEngine dec = new IESEngine(new ECDHBasicAgreement(), new KDF2BytesGenerator(new SHA1Digest()),
+            new HMac(new SHA1Digest()), new PaddedBufferedBlockCipher(new CBCBlockCipher(new AESEngine())));
+        dec.init(false, priKey, pubKey, param);
+        if (!Arrays.areEqual(message, dec.processBlock(ct, 0, ct.length)))
+        {
+            fail("block-cipher IES round trip failed");
+        }
+
+        // change the last ciphertext block (breaks the padding) and the MAC
+        int macLen = new HMac(new SHA1Digest()).getMacSize();
+        for (int t = 0; t != 16; t++)
+        {
+            byte[] bad = Arrays.clone(ct);
+            bad[ct.length - macLen - 1] ^= (byte)(t + 1);
+            bad[ct.length - 1] ^= 0x01;
+            try
+            {
+                dec.processBlock(bad, 0, bad.length);
+                fail("tampered block-cipher IES ciphertext accepted");
+            }
+            catch (InvalidCipherTextException e)
+            {
+                if (!"Mac codes failed to equal.".equals(e.getMessage()))
+                {
+                    fail("tampered ciphertext reported \"" + e.getMessage() + "\" before the MAC");
+                }
+            }
+        }
+    }
+
     public void performTest()
         throws Exception
     {
         doForgeryTest();
+        doMacBeforePaddingTest();
 
         KeyPairGenerator    g = KeyPairGenerator.getInstance("ECIES", "BC");
 

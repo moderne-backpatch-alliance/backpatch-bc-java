@@ -10,6 +10,7 @@ import org.bouncycastle.crypto.params.IESParameters;
 import org.bouncycastle.crypto.params.IESWithCipherParameters;
 import org.bouncycastle.crypto.params.KDFParameters;
 import org.bouncycastle.crypto.params.KeyParameter;
+import org.bouncycastle.util.Arrays;
 
 import java.math.BigInteger;
 
@@ -58,8 +59,8 @@ public class IESEngine
     }
 
     /**
-     * set up for use in conjunction with a block cipher to handle the
-     * message.
+     * Set up for use in conjunction with a block cipher to handle the
+     * message.It is <b>strongly</b> recommended that the cipher is not in ECB mode.
      *
      * @param agree the key agreement used as the basis for the encryption
      * @param kdf the key derivation function used for byte generation
@@ -114,7 +115,11 @@ public class IESEngine
         kdf.init(kParam);
 
         inLen -= mac.getMacSize();
-    
+
+        byte[]  tmp = null;
+        int     len = 0;
+
+        // note order is important: set up keys, do simple encryptions, check mac, do final encryption.
         if (cipher == null)     // stream mode
         {
             byte[] buf = generateKdfBytes(kParam, inLen + (macKeySize / 8));
@@ -136,15 +141,10 @@ public class IESEngine
 
             cipher.init(false, new KeyParameter(buf, 0, (cipherKeySize / 8)));
 
-            byte[] tmp = new byte[cipher.getOutputSize(inLen)];
+            tmp = new byte[cipher.getOutputSize(inLen)];
 
-            int len = cipher.processBytes(in_enc, inOff, inLen, tmp, 0);
-
-            len += cipher.doFinal(tmp, len);
-
-            M = new byte[len];
-
-            System.arraycopy(tmp, 0, M, 0, len);
+            // do initial processing
+            len = cipher.processBytes(in_enc, inOff, inLen, tmp, 0);
 
             macKey = new KeyParameter(buf, (cipherKeySize / 8), (macKeySize / 8));
         }
@@ -158,15 +158,28 @@ public class IESEngine
     
         inOff += inLen;
 
-        for (int t = 0; t < macBuf.length; t++)
-        {           
-            if (macBuf[t] != in_enc[inOff + t])
-            {
-                throw (new InvalidCipherTextException("Mac codes failed to equal."));
-            }
+        byte[]  T2 = new byte[macBuf.length];
+        System.arraycopy(in_enc, inOff, T2, 0, T2.length);
+
+        if (!Arrays.constantTimeAreEqual(macBuf, T2))
+        {
+            throw (new InvalidCipherTextException("Mac codes failed to equal."));
         }
-       
-        return M;
+
+        if (cipher == null)
+        {
+            return M;
+        }
+        else
+        {
+            len += cipher.doFinal(tmp, len);
+
+            M = new byte[len];
+
+            System.arraycopy(tmp, 0, M, 0, len);
+
+            return M;
+        }
     }
 
     private byte[] encryptBlock(
