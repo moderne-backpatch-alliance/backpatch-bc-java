@@ -6,6 +6,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.math.BigInteger;
 import java.security.AlgorithmParameters;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -710,7 +711,7 @@ public class PKCS12KeyStoreSpi
     {
         PBEKeySpec pbeSpec = new PBEKeySpec(password, pbeParams.getSalt(),
             PKCS12Util.validateIterationCount(pbeParams.getIterationCount()),
-            BigIntegers.intValueExact(pbeParams.getKeyLength()) * 8);
+            validateKeyLength(pbeParams.getKeyLength()) * 8);
         byte[] out;
 
         try
@@ -1319,6 +1320,25 @@ public class PKCS12KeyStoreSpi
         {
             localIds.put(alias, name);
         }
+    }
+
+    // A PBKDF2-derived wrapping key is at most a few dozen bytes; anything beyond this is rejected as
+    // abusive. It is also multiplied by 8 at the call site, which overflows for a large enough value.
+    private static final BigInteger MAX_KEY_LENGTH = BigInteger.valueOf(1024);
+
+    private static int validateKeyLength(BigInteger keyLength)
+    {
+        if (keyLength == null || keyLength.signum() <= 0)
+        {
+            throw new IllegalStateException("keyLength must be positive");
+        }
+
+        if (keyLength.compareTo(MAX_KEY_LENGTH) > 0)
+        {
+            throw new IllegalStateException("keyLength " + keyLength + " greater than " + MAX_KEY_LENGTH);
+        }
+
+        return BigIntegers.intValueExact(keyLength);
     }
 
     private ASN1Primitive getAlgParams(ASN1ObjectIdentifier algorithm)
