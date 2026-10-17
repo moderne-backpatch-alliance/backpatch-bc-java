@@ -259,6 +259,75 @@ public class PKIXNameConstraintsTest
         {
             fail(e.getMessage());
         }
+
+        testNameConstraintBypasses();
+        testDNSTrailingDot();
+    }
+
+    private void testNameConstraintBypasses()
+        throws Exception
+    {
+        // An RFC 1034 root-label trailing dot must not let a host escape an excluded rfc822Name or
+        // URI subtree, matching the dNSName canonicalisation.
+        PKIXNameConstraintValidator emailV = new PKIXNameConstraintValidator();
+        emailV.addExcludedSubtree(new GeneralSubtree(new GeneralName(GeneralName.rfc822Name, "bank.com")));
+        try
+        {
+            emailV.checkExcluded(new GeneralName(GeneralName.rfc822Name, "ceo@bank.com."));
+            fail("trailing-dot email must be caught by the excluded bank.com subtree");
+        }
+        catch (PKIXNameConstraintValidatorException e)
+        {
+            // expected
+        }
+
+        PKIXNameConstraintValidator uriV = new PKIXNameConstraintValidator();
+        uriV.addExcludedSubtree(new GeneralSubtree(new GeneralName(GeneralName.uniformResourceIdentifier, "competitor.example")));
+        try
+        {
+            uriV.checkExcluded(new GeneralName(GeneralName.uniformResourceIdentifier, "https://competitor.example./"));
+            fail("trailing-dot URI host must be caught by the excluded competitor.example subtree");
+        }
+        catch (PKIXNameConstraintValidatorException e)
+        {
+            // expected
+        }
+    }
+
+    private void testDNSTrailingDot()
+        throws Exception
+    {
+        String[][] cases = {
+            { "bank.com", "bank.com." },
+            { "bank.com", "www.bank.com." },
+            { ".bank.com", "www.bank.com." }
+        };
+        for (int i = 0; i != cases.length; i++)
+        {
+            PKIXNameConstraintValidator dnsV = new PKIXNameConstraintValidator();
+            dnsV.addExcludedSubtree(new GeneralSubtree(new GeneralName(GeneralName.dNSName, cases[i][0])));
+            try
+            {
+                dnsV.checkExcluded(new GeneralName(GeneralName.dNSName, cases[i][1]));
+                fail("trailing-dot dNSName " + cases[i][1] + " must be caught by the excluded " + cases[i][0] + " subtree");
+            }
+            catch (PKIXNameConstraintValidatorException e)
+            {
+                // expected
+            }
+        }
+
+        PKIXNameConstraintValidator emailV = new PKIXNameConstraintValidator();
+        emailV.addExcludedSubtree(new GeneralSubtree(new GeneralName(GeneralName.rfc822Name, ".bank.com")));
+        try
+        {
+            emailV.checkExcluded(new GeneralName(GeneralName.rfc822Name, "ceo@www.bank.com."));
+            fail("trailing-dot email must be caught by the excluded .bank.com subtree");
+        }
+        catch (PKIXNameConstraintValidatorException e)
+        {
+            // expected
+        }
     }
 
     /**
