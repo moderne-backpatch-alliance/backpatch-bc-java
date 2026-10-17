@@ -73,6 +73,7 @@
         <pathelement location="${jmail.jar.home}" />
         <pathelement location="${jactivation.jar.home}" />
         <pathelement location="${junit.jar.home}" />
+        <pathelement location="${ldap.jar.home}" />
     </path> 
 
     <target name="pack200-on" if="pack200.enabled">
