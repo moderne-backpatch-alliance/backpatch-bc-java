@@ -2,6 +2,7 @@ package org.bouncycastle.jce.provider.test;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.security.Key;
 import java.security.KeyFactory;
@@ -27,13 +28,20 @@ import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.ASN1StreamParser;
 import org.bouncycastle.asn1.DERBMPString;
 import org.bouncycastle.asn1.DEREncodable;
+import org.bouncycastle.asn1.DERNull;
+import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.DERSequenceParser;
 import org.bouncycastle.asn1.pkcs.ContentInfo;
 import org.bouncycastle.asn1.pkcs.EncryptedData;
 import org.bouncycastle.asn1.pkcs.EncryptedPrivateKeyInfo;
+import org.bouncycastle.asn1.pkcs.MacData;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.pkcs.Pfx;
 import org.bouncycastle.asn1.pkcs.SafeBag;
+import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.bouncycastle.asn1.x509.DigestInfo;
+import org.bouncycastle.asn1.x509.X509ObjectIdentifiers;
 import org.bouncycastle.jce.PKCS12Util;
 import org.bouncycastle.jce.X509Principal;
 import org.bouncycastle.jce.interfaces.PKCS12BagAttributeCarrier;
@@ -1035,10 +1043,61 @@ public class PKCS12StoreTest
         return "PKCS12Store";
     }
 
+    /**
+     * CVE-2026-13586, test written for the backpatch (as on 1.78.1): without org.bouncycastle.pkcs12.max_it_count
+     * set, a PKCS#12 MAC iteration count above 5,000,000 is refused before the key derivation runs. The MAC value
+     * itself is filler.
+     */
+    private void testIterationCountDefaultLimit()
+        throws Exception
+    {
+        String message = "iteration count 5000001 greater than 5000000";
+        char[] password = "hello world".toCharArray();
+        byte[] pfx = pfxWithIterationCount(5000001);
+
+        KeyStore store = KeyStore.getInstance("PKCS12", "BC");
+        try
+        {
+            store.load(new ByteArrayInputStream(pfx), password);
+            fail("keystore accepted an iteration count above the default limit");
+        }
+        catch (IOException e)
+        {
+            if (e.getMessage().indexOf(message) < 0)
+            {
+                fail("keystore: " + e.getMessage());
+            }
+        }
+
+        try
+        {
+            PKCS12Util.convertToDefiniteLength(pfx, password, "BC");
+            fail("PKCS12Util accepted an iteration count above the default limit");
+        }
+        catch (IOException e)
+        {
+            if (e.getMessage().indexOf(message) < 0)
+            {
+                fail("PKCS12Util: " + e.getMessage());
+            }
+        }
+    }
+
+    private static byte[] pfxWithIterationCount(int iterationCount)
+        throws Exception
+    {
+        ContentInfo authSafe = new ContentInfo(PKCSObjectIdentifiers.data,
+            new DEROctetString(new DERSequence().getEncoded()));
+        DigestInfo mac = new DigestInfo(new AlgorithmIdentifier(X509ObjectIdentifiers.id_SHA1, DERNull.INSTANCE), new byte[20]);
+
+        return new Pfx(authSafe, new MacData(mac, new byte[8], iterationCount)).getEncoded();
+    }
+
     public void performTest()
         throws Exception
     {
         testPKCS12Store();
+        testIterationCountDefaultLimit();
 
 
         // converter tests
