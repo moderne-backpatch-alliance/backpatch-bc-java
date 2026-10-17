@@ -21,6 +21,7 @@ public class AllTests
         suite.addTestSuite(PKCS10Test.class);
         suite.addTestSuite(PKCS8Test.class);
         suite.addTestSuite(PBETest.class);
+        suite.addTestSuite(PBEKDFCostTest.class);
 
         return new BCTestSetup(suite);
     }
