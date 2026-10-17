@@ -22,7 +22,7 @@ class StreamUtil
     static int findDepth()
     {
         String maxConsDepth = Properties.getPropertyValue(MAX_CONS_DEPTH);
-        return Math.max(0, (maxConsDepth != null) ? Integer.parseInt(maxConsDepth) : Integer.MAX_VALUE);
+        return Math.max(0, (maxConsDepth != null) ? Integer.parseInt(maxConsDepth) : 64);
     }
 
     private static final long  MAX_MEMORY = Runtime.getRuntime().maxMemory();

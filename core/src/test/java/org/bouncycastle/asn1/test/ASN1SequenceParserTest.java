@@ -1,7 +1,10 @@
 package org.bouncycastle.asn1.test;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigInteger;
 import java.util.Arrays;
 
@@ -17,6 +20,7 @@ import org.bouncycastle.asn1.ASN1Null;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1ParsingException;
 import org.bouncycastle.asn1.ASN1Primitive;
+import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.ASN1SequenceParser;
 import org.bouncycastle.asn1.ASN1StreamParser;
 import org.bouncycastle.asn1.BERSequenceGenerator;
@@ -336,6 +340,90 @@ public class ASN1SequenceParserTest
        seqGen.close();
       
        assertTrue("explicit BER tag writing test failed.", Arrays.equals(berExpTagSeqData, bOut.toByteArray()));
+    }
+
+    public void testHeavilyDLNestedSequence()
+        throws Exception
+    {
+        try
+        {
+            ASN1Sequence seq = ASN1Sequence.getInstance(new ASN1InputStream(findTestResource("asn1", "nested_seq.der")).readObject());
+            fail("no exception");
+        }
+        catch (ASN1Exception e)
+        {
+            assertEquals("maximum nested construction level reached", e.getMessage());
+        }
+    }
+
+    public void testHeavilyBERNestedSequence()
+        throws Exception
+    {
+        try
+        {
+            ASN1Sequence seq = ASN1Sequence.getInstance(new ASN1InputStream(findTestResource("asn1", "nested_seq_indef.ber")).readObject());
+            fail("no exception");
+        }
+        catch (ASN1Exception e)
+        {
+            assertEquals("maximum nested construction level reached", e.getMessage());
+        }
+    }
+
+    public void testHeavilyLazyNestedSequence()
+        throws Exception
+    {
+        // Deeply nested SEQUENCE { SEQUENCE { ... } }, well past the default max_cons_depth (64)
+        // but shallow enough that a whole-tree walk would not itself overflow the Java stack if the
+        // guard were absent -- so this proves the guard is enforced, not merely that we crash.
+        ASN1Encodable node = new DERSequence();
+        for (int i = 0; i < 256; i++)
+        {
+            node = new DERSequence(node);
+        }
+        byte[] der = node.toASN1Primitive().getEncoded(ASN1Encoding.DER);
+
+        // The lazy parse succeeds shallowly (only the outermost level is decoded eagerly).
+        ASN1Primitive parsed = new ASN1InputStream(der, true).readObject();
+
+        // Forcing the whole tree (hashCode walks every element) must hit the same nested-construction
+        // limit the eager path enforces, raising an ASN1Exception rather than a StackOverflowError.
+        try
+        {
+            parsed.hashCode();
+            fail("nested construction depth limit not enforced on lazy parse");
+        }
+        catch (ASN1ParsingException e)
+        {
+            assertEquals("maximum nested construction level reached", e.getCause().getMessage());
+        }
+    }
+
+    private static InputStream findTestResource(String homeDir, String fileName)
+        throws IOException
+    {
+        // test data lives in core/src/test/data here (bc.test.data.home), not in bc-test-data
+        String dataHome = System.getProperty("bc.test.data.home", "core/src/test/data");
+
+        return new FileInputStream(new File(new File(dataHome, homeDir), fileName));
+    }
+
+    public void testDefaultMaxConsDepth()
+        throws Exception
+    {
+        new ASN1InputStream(dlNestedSequence(64)).readObject();
+        new ASN1InputStream(dlNestedSequence(64), true).readObject().hashCode();
+        new ASN1InputStream(berNestedSequence(64)).readObject();
+
+        try
+        {
+            new ASN1InputStream(dlNestedSequence(65)).readObject();
+            fail("default nested construction depth limit not enforced");
+        }
+        catch (ASN1Exception e)
+        {
+            assertEquals("maximum nested construction level reached", e.getMessage());
+        }
     }
 
     public void testMaxConsDepthProperty()
