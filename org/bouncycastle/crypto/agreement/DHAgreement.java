@@ -26,6 +26,9 @@ import org.bouncycastle.crypto.params.ParametersWithRandom;
  */
 public class DHAgreement
 {
+    private static final BigInteger ONE = BigInteger.valueOf(1);
+    private static final BigInteger TWO = BigInteger.valueOf(2);
+
     private DHPrivateKeyParameters  key;
     private DHParameters            dhParams;
     private BigInteger              privateValue;
@@ -78,10 +81,17 @@ public class DHAgreement
      * calculate the next message in the agreement sequence. In this case
      * this will represent the shared secret.
      */
-    public BigInteger calculateAgreement(
-        DHPublicKeyParameters   pub,
-        BigInteger              message)
+    public BigInteger calculateAgreement(DHPublicKeyParameters pub, BigInteger message)
     {
+        if (pub == null)
+        {
+            throw new NullPointerException("'pub' cannot be null");
+        }
+        if (message == null)
+        {
+            throw new NullPointerException("'message' cannot be null");
+        }
+
         if (!pub.getParameters().equals(dhParams))
         {
             throw new IllegalArgumentException("Diffie-Hellman public key has wrong parameters.");
@@ -89,6 +99,32 @@ public class DHAgreement
 
         BigInteger p = dhParams.getP();
 
-        return message.modPow(key.getX(), p).multiply(pub.getY().modPow(privateValue, p)).mod(p);
+        // Both peer-supplied values are raised to our (potentially static) private key, so both must
+        // satisfy the DH public-value range/subgroup checks; otherwise a peer can submit a small-order
+        // or out-of-range element to mount a small-subgroup confinement attack and, when our private
+        // key is reused, recover it via CRT.
+        BigInteger peerMessage = validatePeerValue(message);
+        BigInteger peerY = validatePeerValue(pub.getY());
+
+        return peerMessage.modPow(key.getX(), p).multiply(peerY.modPow(privateValue, p)).mod(p);
+    }
+
+    // 1.46's DHPublicKeyParameters does not validate Y, so the checks of later releases' constructor are made here
+    private BigInteger validatePeerValue(BigInteger y)
+    {
+        BigInteger p = dhParams.getP();
+
+        if (y.compareTo(TWO) < 0 || y.compareTo(p.subtract(TWO)) > 0)
+        {
+            throw new IllegalArgumentException("invalid DH public key");
+        }
+
+        BigInteger q = dhParams.getQ();
+        if (q != null && !ONE.equals(y.modPow(q, p)))
+        {
+            throw new IllegalArgumentException("Y value does not appear to be in correct group");
+        }
+
+        return y;
     }
 }
