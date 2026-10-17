@@ -57,7 +57,8 @@ public class RegressionTest
         new DERPrivateTest(),
         new DefiniteLengthAllocationTest(),
         new BMPStringAllocationTest(),
-        new RDNEscapeTest()
+        new RDNEscapeTest(),
+        new OIDLengthLimitTest()
     };
 
     public static void main(String[] args)

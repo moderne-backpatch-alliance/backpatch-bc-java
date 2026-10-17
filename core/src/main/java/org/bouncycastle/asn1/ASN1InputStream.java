@@ -518,14 +518,20 @@ public class ASN1InputStream
         case OBJECT_DESCRIPTOR:
             return ASN1ObjectDescriptor.createPrimitive(defIn.toByteArray());
         case OBJECT_IDENTIFIER:
+        {
+            ASN1ObjectIdentifier.checkContentsLength(defIn.getRemaining());
             // TODO Ideally only clone if we used a buffer
             return ASN1ObjectIdentifier.createPrimitive(getBuffer(defIn, tmpBuffers), true);
+        }
         case OCTET_STRING:
             return ASN1OctetString.createPrimitive(defIn.toByteArray());
         case PRINTABLE_STRING:
             return ASN1PrintableString.createPrimitive(defIn.toByteArray());
         case RELATIVE_OID:
+        {
+            ASN1RelativeOID.checkContentsLength(defIn.getRemaining());
             return ASN1RelativeOID.createPrimitive(defIn.toByteArray(), false);
+        }
         case T61_STRING:
             return ASN1T61String.createPrimitive(defIn.toByteArray());
         case UNIVERSAL_STRING:
