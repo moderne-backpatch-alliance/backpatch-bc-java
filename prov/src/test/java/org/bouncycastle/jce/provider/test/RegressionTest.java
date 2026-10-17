@@ -40,6 +40,7 @@ public class RegressionTest
         new EncryptedPrivateKeyInfoTest(),
         new KeyStoreTest(),
         new PKCS12StoreTest(),
+        new PKCS12IterationLimitTest(),
         new DigestTest(),
         new PSSTest(),
         new WrapTest(),

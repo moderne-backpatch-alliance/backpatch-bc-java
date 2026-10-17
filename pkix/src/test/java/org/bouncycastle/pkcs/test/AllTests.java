@@ -20,6 +20,7 @@ public class AllTests
         suite.addTestSuite(PKCS10Test.class);
         suite.addTestSuite(PKCS8Test.class);
         suite.addTestSuite(PBEKDFCostTest.class);
+        suite.addTestSuite(PKCS12IterationLimitTest.class);
 
         return new BCTestSetup(suite);
     }

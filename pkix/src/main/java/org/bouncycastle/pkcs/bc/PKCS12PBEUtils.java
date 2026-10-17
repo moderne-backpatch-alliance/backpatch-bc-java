@@ -1,6 +1,7 @@
 package org.bouncycastle.pkcs.bc;
 
 import java.io.OutputStream;
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -27,6 +28,7 @@ import org.bouncycastle.crypto.params.ParametersWithIV;
 import org.bouncycastle.operator.GenericKey;
 import org.bouncycastle.operator.MacCalculator;
 import org.bouncycastle.util.Integers;
+import org.bouncycastle.util.Properties;
 
 class PKCS12PBEUtils
 {
@@ -91,7 +93,7 @@ class PKCS12PBEUtils
     {
         PKCS12ParametersGenerator pGen = new PKCS12ParametersGenerator(digest);
 
-        pGen.init(PKCS12ParametersGenerator.PKCS12PasswordToBytes(password), pbeParams.getIV(), pbeParams.getIterations().intValue());
+        pGen.init(PKCS12ParametersGenerator.PKCS12PasswordToBytes(password), pbeParams.getIV(), validateIterationCount(pbeParams.getIterations()));
 
         final KeyParameter keyParam = (KeyParameter)pGen.generateDerivedMacParameters(digest.getDigestSize() * 8);
 
@@ -131,7 +133,7 @@ class PKCS12PBEUtils
     {
         PKCS12ParametersGenerator pGen = new PKCS12ParametersGenerator(digest);
 
-        pGen.init(PKCS12ParametersGenerator.PKCS12PasswordToBytes(password), pbeParams.getIV(), pbeParams.getIterations().intValue());
+        pGen.init(PKCS12ParametersGenerator.PKCS12PasswordToBytes(password), pbeParams.getIV(), validateIterationCount(pbeParams.getIterations()));
 
         CipherParameters params;
 
@@ -149,5 +151,32 @@ class PKCS12PBEUtils
             }
         }
         return params;
+    }
+
+    // the iteration count comes from the unauthenticated PKCS#12 / PKCS#8 structure: bound it
+    // before the key derivation runs (as bcprov's org.bouncycastle.jce.PKCS12Util does)
+    private static int validateIterationCount(BigInteger ic)
+    {
+        if (ic.signum() < 0)
+        {
+            throw new IllegalStateException("negative iteration count found");
+        }
+        if (ic.bitLength() > 31)
+        {
+            throw new IllegalStateException("iteration counts >= 2^31 are not suppported");
+        }
+
+        BigInteger max = Properties.asBigInteger("org.bouncycastle.pkcs12.max_it_count");
+        if (max == null)
+        {
+            max = BigInteger.valueOf(5000000);
+        }
+
+        if (ic.compareTo(max) > 0)
+        {
+            throw new IllegalStateException("iteration count " + ic + " greater than " + max);
+        }
+
+        return ic.intValue();
     }
 }
