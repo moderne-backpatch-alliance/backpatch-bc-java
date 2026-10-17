@@ -324,14 +324,18 @@ public class KCCMBlockCipher
 
             engine.processBlock(nonce, 0, s, 0);
 
+            // recover into a private buffer; the caller's output only gets it once the MAC verifies
+            byte[] plain = new byte[len];
+            int plainOff = 0;
+
             int blocks = len / engine.getBlockSize();
 
             for (int blockNum = 0; blockNum < blocks; blockNum++)
             {
-                ProcessBlock(in, inOff, len, out, outOff);
+                ProcessBlock(in, inOff, len, plain, plainOff);
 
                 inOff += engine.getBlockSize();
-                outOff += engine.getBlockSize();
+                plainOff += engine.getBlockSize();
             }
 
             if (len > inOff)
@@ -345,9 +349,9 @@ public class KCCMBlockCipher
 
                 for (int byteIndex = 0; byteIndex < macSize; byteIndex++)
                 {
-                    out[outOff + byteIndex] = (byte)(buffer[byteIndex] ^ in[inOff + byteIndex]);
+                    plain[plainOff + byteIndex] = (byte)(buffer[byteIndex] ^ in[inOff + byteIndex]);
                 }
-                outOff += macSize;
+                plainOff += macSize;
             }
 
             for (int byteIndex = 0; byteIndex < counter.length; byteIndex++)
@@ -357,9 +361,9 @@ public class KCCMBlockCipher
 
             engine.processBlock(s, 0, buffer, 0);
 
-            System.arraycopy(out, outOff - macSize, buffer, 0, macSize);
+            System.arraycopy(plain, plainOff - macSize, buffer, 0, macSize);
 
-            CalculateMac(out, 0, outOff - macSize);
+            CalculateMac(plain, 0, plainOff - macSize);
 
             System.arraycopy(macBlock, 0, mac, 0, macSize);
 
@@ -369,8 +373,11 @@ public class KCCMBlockCipher
 
             if (!Arrays.constantTimeAreEqual(mac, calculatedMac))
             {
+                Arrays.fill(plain, (byte)0);
                 throw new InvalidCipherTextException("mac check failed");
             }
+
+            System.arraycopy(plain, 0, out, outOff, plainOff);
 
             reset();
 
