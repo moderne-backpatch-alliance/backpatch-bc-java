@@ -2,6 +2,8 @@ package org.bouncycastle.jce.provider.test;
 
 import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1InputStream;
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.DERObjectIdentifier;
 import org.bouncycastle.asn1.DERSet;
 import org.bouncycastle.asn1.DERTaggedObject;
 import org.bouncycastle.asn1.cms.CMSObjectIdentifiers;
@@ -16,6 +18,7 @@ import org.bouncycastle.x509.X509StreamParser;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.security.Security;
 import java.security.cert.X509CRL;
 import java.security.cert.X509Certificate;
@@ -65,9 +68,63 @@ public class X509StreamParserTest
       + "6asYwy151HshbPNYz+Cgeqs45KkVzh7bL/0e1r8sDVIaaGIkjHK3CqBABnfSayr3"
       + "Rd1yBoDdEv8Qb+3eEPH6ab9021AsLEnJ6LWTmybbOpMNZ3tv");
 
+    // test written for the backpatch (CVE-2025-8885): OID contents are limited to 4096 octets, as upstream
+    private void testOidContentsLimit()
+        throws Exception
+    {
+        DERObjectIdentifier oid = (DERObjectIdentifier)new ASN1InputStream(oidEncoding(4096)).readObject();
+        if (!oid.getId().startsWith("1.2.1.1."))
+        {
+            fail("4096 octet OID parsed wrongly");
+        }
+
+        try
+        {
+            new ASN1InputStream(oidEncoding(4097)).readObject();
+            fail("4097 octet OID accepted");
+        }
+        catch (IOException e)
+        {
+            // expected
+        }
+
+        StringBuffer id = new StringBuffer("1.2");
+        while (id.length() < 4096 * 4 + 1)
+        {
+            id.append(".1");
+        }
+        try
+        {
+            new ASN1ObjectIdentifier(id.toString() + "1");
+            fail("over-long OID string accepted");
+        }
+        catch (IllegalArgumentException e)
+        {
+            // expected
+        }
+    }
+
+    // OBJECT IDENTIFIER 1.2.1.1... with the given number of contents octets
+    private static byte[] oidEncoding(int contentsLength)
+    {
+        byte[] enc = new byte[contentsLength + 4];
+        enc[0] = 0x06;
+        enc[1] = (byte)0x82;
+        enc[2] = (byte)(contentsLength >> 8);
+        enc[3] = (byte)contentsLength;
+        enc[4] = 0x2a;
+        for (int i = 5; i != enc.length; i++)
+        {
+            enc[i] = 0x01;
+        }
+        return enc;
+    }
+
     public void performTest()
         throws Exception
     {
+        testOidContentsLimit();
+
         X509StreamParser parser = X509StreamParser.getInstance("Certificate", "BC");
 
         parser.init(new ByteArrayInputStream(CertPathTest.rootCertBin));

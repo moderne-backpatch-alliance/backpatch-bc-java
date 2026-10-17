@@ -8,6 +8,17 @@ import java.math.BigInteger;
 public class DERObjectIdentifier
     extends ASN1Object
 {
+    /**
+     * Implementation limit on the length of the contents octets for an Object Identifier.
+     * <p/>
+     * We adopt the same value used by OpenJDK. In theory there is no limit on the length of the contents, or
+     * the number of subidentifiers, or the length of individual subidentifiers. In practice, supporting
+     * arbitrary lengths can lead to issues, e.g. denial-of-service attacks when attempting to convert a
+     * parsed value to its (decimal) string form.
+     */
+    private static final int MAX_CONTENTS_LENGTH = 4096;
+    private static final int MAX_IDENTIFIER_LENGTH = MAX_CONTENTS_LENGTH * 4 + 1;
+
     String      identifier;
 
     /**
@@ -55,6 +66,11 @@ public class DERObjectIdentifier
     DERObjectIdentifier(
         byte[]  bytes)
     {
+        if (bytes.length > MAX_CONTENTS_LENGTH)
+        {
+            throw new IllegalArgumentException("exceeded OID contents length limit");
+        }
+
         StringBuffer    objId = new StringBuffer();
         long            value = 0;
         BigInteger      bigValue = null;
@@ -116,6 +132,14 @@ public class DERObjectIdentifier
     public DERObjectIdentifier(
         String  identifier)
     {
+        if (identifier == null)
+        {
+            throw new NullPointerException("'identifier' cannot be null");
+        }
+        if (identifier.length() > MAX_IDENTIFIER_LENGTH)
+        {
+            throw new IllegalArgumentException("exceeded OID contents length limit");
+        }
         if (!isValidIdentifier(identifier))
         {
             throw new IllegalArgumentException("string " + identifier + " not an OID");
