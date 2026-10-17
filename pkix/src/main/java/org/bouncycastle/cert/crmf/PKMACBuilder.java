@@ -13,6 +13,7 @@ import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.operator.GenericKey;
 import org.bouncycastle.operator.MacCalculator;
 import org.bouncycastle.operator.RuntimeOperatorException;
+import org.bouncycastle.util.Properties;
 import org.bouncycastle.util.Strings;
 
 public class PKMACBuilder
@@ -122,10 +123,23 @@ public class PKMACBuilder
 
     private void checkIterationCountCeiling(int iterationCount)
     {
-        if (maxIterations > 0 && iterationCount > maxIterations)
+        // When no explicit ceiling was configured, fall back to a generous default so that an
+        // attacker-supplied PBMParameter from an incoming CMP message (verified via the get(...)
+        // entry point) cannot drive the iterated hash in genCalculator into a CPU-exhaustion DoS.
+        int ceiling = maxIterations > 0
+            ? maxIterations
+            : defaultIterationCeiling();
+        if (iterationCount > ceiling)
         {
-            throw new IllegalArgumentException("iteration count exceeds limit (" + iterationCount + " > " + maxIterations + ")");
+            throw new IllegalArgumentException("iteration count exceeds limit (" + iterationCount + " > " + ceiling + ")");
         }
+    }
+
+    private static int defaultIterationCeiling()
+    {
+        String limit = Properties.getPropertyValue(Properties.PKMAC_MAX_ITERATION_COUNT);
+
+        return (limit != null) ? Integer.parseInt(limit) : 10000000;
     }
 
     private MacCalculator genCalculator(final PBMParameter params, char[] password)
