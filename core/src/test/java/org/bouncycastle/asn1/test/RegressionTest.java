@@ -56,7 +56,8 @@ public class RegressionTest
         new KMACParamsTest(),
         new DERPrivateTest(),
         new DefiniteLengthAllocationTest(),
-        new BMPStringAllocationTest()
+        new BMPStringAllocationTest(),
+        new RDNEscapeTest()
     };
 
     public static void main(String[] args)
