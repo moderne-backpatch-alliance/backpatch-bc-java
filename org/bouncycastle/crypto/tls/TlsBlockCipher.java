@@ -15,6 +15,7 @@ import org.bouncycastle.util.Arrays;
 public class TlsBlockCipher implements TlsCipher
 {
     protected TlsClientContext context;
+    protected byte[] randomData;
 
     protected BlockCipher encryptCipher;
     protected BlockCipher decryptCipher;
@@ -26,6 +27,10 @@ public class TlsBlockCipher implements TlsCipher
         BlockCipher decryptCipher, Digest writeDigest, Digest readDigest, int cipherKeySize)
     {
         this.context = context;
+
+        this.randomData = new byte[256];
+        context.getSecureRandom().nextBytes(randomData);
+
         this.encryptCipher = encryptCipher;
         this.decryptCipher = decryptCipher;
 
@@ -95,101 +100,101 @@ public class TlsBlockCipher implements TlsCipher
     public byte[] decodeCiphertext(short type, byte[] ciphertext, int offset, int len)
         throws IOException
     {
-        // TODO TLS 1.1 (RFC 4346) introduces an explicit IV
-
-        int minLength = readMac.getSize() + 1;
-        int blocksize = decryptCipher.getBlockSize();
-        boolean decrypterror = false;
+        int blockSize = decryptCipher.getBlockSize();
+        int macSize = readMac.getSize();
 
         /*
-         * ciphertext must be at least (macsize + 1) bytes long
+         *  TODO[TLS 1.1] Explicit IV implies minLen = blockSize + max(blockSize, macSize + 1),
+         *  and will need further changes to offset and plen variables below.
          */
-        if (len < minLength)
+
+        int minLen = Math.max(blockSize, macSize + 1);
+        if (len < minLen)
         {
             throw new TlsFatalAlert(AlertDescription.decode_error);
         }
 
-        /*
-         * ciphertext must be a multiple of blocksize
-         */
-        if (len % blocksize != 0)
+        if (len % blockSize != 0)
         {
             throw new TlsFatalAlert(AlertDescription.decryption_failed);
         }
 
-        /*
-         * Decrypt all the ciphertext using the blockcipher
-         */
-        for (int i = 0; i < len; i += blocksize)
+        for (int i = 0; i < len; i += blockSize)
         {
-            decryptCipher.processBlock(ciphertext, i + offset, ciphertext, i + offset);
+            decryptCipher.processBlock(ciphertext, offset + i, ciphertext, offset + i);
         }
 
-        /*
-         * Check if padding is correct
-         */
-        int lastByteOffset = offset + len - 1;
+        int plen = len;
 
-        byte paddingsizebyte = ciphertext[lastByteOffset];
+        // If there's anything wrong with the padding, this will return zero
+        int totalPad = checkPaddingConstantTime(ciphertext, offset, plen, blockSize, macSize);
 
-        // Note: interpret as unsigned byte
-        int paddingsize = paddingsizebyte & 0xff;
+        int macInputLen = plen - totalPad - macSize;
 
-        int maxPaddingSize = len - minLength;
-        if (paddingsize > maxPaddingSize)
-        {
-            decrypterror = true;
-            paddingsize = 0;
-        }
-        else
-        {
-            /*
-             * Now, check all the padding-bytes (constant-time comparison).
-             */
-            byte diff = 0;
-            for (int i = lastByteOffset - paddingsize; i < lastByteOffset; ++i)
-            {
-                diff |= (ciphertext[i] ^ paddingsizebyte);
-            }
-            if (diff != 0)
-            {
-                /* Wrong padding */
-                decrypterror = true;
-                paddingsize = 0;
-            }
-        }
+        byte[] decryptedMac = copyOfRange(ciphertext, offset + macInputLen, offset + macInputLen + macSize);
+        byte[] calculatedMac = readMac.calculateMacConstantTime(type, ciphertext, offset, macInputLen, plen - macSize, randomData);
 
-        /*
-         * We now don't care if padding verification has failed or not, we will calculate
-         * the mac to give an attacker no kind of timing profile he can use to find out if
-         * mac verification failed or padding verification failed.
-         */
-        int plaintextlength = len - minLength - paddingsize;
-        byte[] calculatedMac = readMac.calculateMac(type, ciphertext, offset, plaintextlength);
+        boolean badMac = !Arrays.constantTimeAreEqual(calculatedMac, decryptedMac);
 
-        /*
-         * Check all bytes in the mac (constant-time comparison).
-         */
-        byte[] decryptedMac = new byte[calculatedMac.length];
-        System.arraycopy(ciphertext, offset + plaintextlength, decryptedMac, 0,
-            calculatedMac.length);
-
-        if (!Arrays.constantTimeAreEqual(calculatedMac, decryptedMac))
-        {
-            decrypterror = true;
-        }
-
-        /*
-         * Now, it is safe to fail.
-         */
-        if (decrypterror)
+        if (badMac || totalPad == 0)
         {
             throw new TlsFatalAlert(AlertDescription.bad_record_mac);
         }
 
-        byte[] plaintext = new byte[plaintextlength];
-        System.arraycopy(ciphertext, offset, plaintext, 0, plaintextlength);
-        return plaintext;
+        return copyOfRange(ciphertext, offset, offset + macInputLen);
+    }
+
+    protected int checkPaddingConstantTime(byte[] buf, int off, int len, int blockSize, int macSize)
+    {
+        int end = off + len;
+        byte lastByte = buf[end - 1];
+        int padlen = lastByte & 0xff;
+        int totalPad = padlen + 1;
+
+        int dummyIndex = 0;
+        byte padDiff = 0;
+
+        if (macSize + totalPad > len)
+        {
+            totalPad = 0;
+        }
+        else
+        {
+            int padPos = end - totalPad;
+            do
+            {
+                padDiff |= (buf[padPos++] ^ lastByte);
+            }
+            while (padPos < end);
+
+            dummyIndex = totalPad;
+
+            if (padDiff != 0)
+            {
+                totalPad = 0;
+            }
+        }
+
+        // Run some extra dummy checks so the number of checks is always constant
+        {
+            byte[] dummyPad = randomData;
+            while (dummyIndex < 256)
+            {
+                padDiff |= (dummyPad[dummyIndex++] ^ lastByte);
+            }
+            // Ensure the above loop is not eliminated
+            dummyPad[0] ^= padDiff;
+        }
+
+        return totalPad;
+    }
+
+    // 1.46's util.Arrays has no copyOfRange
+    private static byte[] copyOfRange(byte[] data, int from, int to)
+    {
+        byte[] tmp = new byte[to - from];
+        System.arraycopy(data, from, tmp, 0, tmp.length);
+        return tmp;
     }
 
     protected int chooseExtraPadBlocks(SecureRandom r, int max)

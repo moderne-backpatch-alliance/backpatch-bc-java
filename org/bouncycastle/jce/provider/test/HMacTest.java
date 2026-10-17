@@ -1,7 +1,9 @@
 package org.bouncycastle.jce.provider.test;
 
+import java.lang.reflect.Field;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
+import java.security.SecureRandom;
 import java.security.Security;
 
 import javax.crypto.KeyGenerator;
@@ -10,7 +12,20 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.RC5ParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.bouncycastle.crypto.BlockCipher;
+import org.bouncycastle.crypto.digests.SHA1Digest;
+import org.bouncycastle.crypto.engines.AESEngine;
+import org.bouncycastle.crypto.modes.CBCBlockCipher;
+import org.bouncycastle.crypto.params.KeyParameter;
+import org.bouncycastle.crypto.params.ParametersWithIV;
+import org.bouncycastle.crypto.tls.ContentType;
+import org.bouncycastle.crypto.tls.SecurityParameters;
+import org.bouncycastle.crypto.tls.TlsBlockCipher;
+import org.bouncycastle.crypto.tls.TlsClientContext;
+import org.bouncycastle.crypto.tls.TlsFatalAlert;
+import org.bouncycastle.crypto.tls.TlsMac;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Hex;
 import org.bouncycastle.util.test.SimpleTest;
 import org.bouncycastle.asn1.iana.IANAObjectIdentifiers;
@@ -124,9 +139,139 @@ public class HMacTest
         }
     }
 
+    // test written for the backpatch (CVE-2013-1624, "Lucky Thirteen"): TlsBlockCipher.decodeCiphertext runs the
+    // same number of SHA-1 compressions for records of the same length, whatever their padding length and whether
+    // the padding is valid
+    private void testTlsRecordMacConstantTime()
+        throws Exception
+    {
+        SecurityParameters securityParameters = new SecurityParameters();
+        setField(SecurityParameters.class, securityParameters, "masterSecret", new byte[48]);
+        setField(SecurityParameters.class, securityParameters, "clientRandom", new byte[32]);
+        setField(SecurityParameters.class, securityParameters, "serverRandom", new byte[32]);
+        final SecurityParameters sp = securityParameters;
+        TlsClientContext context = new TlsClientContext()
+        {
+            private final SecureRandom random = new SecureRandom();
+            private Object userObject;
+
+            public SecureRandom getSecureRandom()
+            {
+                return random;
+            }
+
+            public SecurityParameters getSecurityParameters()
+            {
+                return sp;
+            }
+
+            public Object getUserObject()
+            {
+                return userObject;
+            }
+
+            public void setUserObject(Object userObject)
+            {
+                this.userObject = userObject;
+            }
+        };
+
+        TlsBlockCipher tlsCipher = new TlsBlockCipher(context, new CBCBlockCipher(new AESEngine()),
+            new CBCBlockCipher(new AESEngine()), new SHA1Digest(), new SHA1Digest(), 16);
+
+        byte[] key = Hex.decode("000102030405060708090a0b0c0d0e0f");
+        byte[] iv = Hex.decode("0f0e0d0c0b0a09080706050403020100");
+        byte[] macKey = Hex.decode("101112131415161718191a1b1c1d1e1f20212223");
+
+        // 64-byte records: 42 bytes of data with a 2-byte pad, 43 bytes with a 1-byte pad, and 43 bytes with a
+        // wrong pad byte; the MAC input crosses a SHA-1 block boundary between 42 and 43 bytes
+        int[] counts = new int[3];
+        for (int r = 0; r != counts.length; r++)
+        {
+            int dataLen = (r == 0) ? 42 : 43;
+            byte[] data = new byte[dataLen];
+            for (int i = 0; i != data.length; i++)
+            {
+                data[i] = (byte)i;
+            }
+
+            byte[] mac = new TlsMac(new SHA1Digest(), macKey, 0, macKey.length).calculateMac(ContentType.application_data, data, 0, data.length);
+            byte[] record = new byte[64];
+            System.arraycopy(data, 0, record, 0, data.length);
+            System.arraycopy(mac, 0, record, data.length, mac.length);
+            int pad = record.length - data.length - mac.length - 1;
+            for (int i = data.length + mac.length; i != record.length; i++)
+            {
+                record[i] = (byte)pad;
+            }
+            if (r == 2)
+            {
+                record[record.length - 1] = 7;
+            }
+
+            BlockCipher enc = new CBCBlockCipher(new AESEngine());
+            enc.init(true, new ParametersWithIV(new KeyParameter(key), iv));
+            for (int i = 0; i < record.length; i += 16)
+            {
+                enc.processBlock(record, i, record, i);
+            }
+
+            CountingSHA1Digest counting = new CountingSHA1Digest();
+            setField(TlsBlockCipher.class, tlsCipher, "readMac", new TlsMac(counting, macKey, 0, macKey.length));
+            BlockCipher dec = new CBCBlockCipher(new AESEngine());
+            dec.init(false, new ParametersWithIV(new KeyParameter(key), iv));
+            setField(TlsBlockCipher.class, tlsCipher, "decryptCipher", dec);
+
+            counting.blocks = 0;
+            try
+            {
+                byte[] plain = tlsCipher.decodeCiphertext(ContentType.application_data, record, 0, record.length);
+                if (r == 2 || !Arrays.areEqual(data, plain))
+                {
+                    fail("TLS record " + r + " decoded wrongly");
+                }
+            }
+            catch (TlsFatalAlert e)
+            {
+                if (r != 2)
+                {
+                    fail("TLS record " + r + " refused");
+                }
+            }
+            counts[r] = counting.blocks;
+        }
+
+        if (counts[0] != counts[1] || counts[1] != counts[2])
+        {
+            fail("SHA-1 compressions differ for equal-length TLS records: " + counts[0] + ", " + counts[1] + ", " + counts[2]);
+        }
+    }
+
+    private static void setField(Class cls, Object target, String name, Object value)
+        throws Exception
+    {
+        Field f = cls.getDeclaredField(name);
+        f.setAccessible(true);
+        f.set(target, value);
+    }
+
+    private static class CountingSHA1Digest
+        extends SHA1Digest
+    {
+        int blocks;
+
+        protected void processBlock()
+        {
+            blocks++;
+            super.processBlock();
+        }
+    }
+
     public void performTest()
         throws Exception
     {
+        testTlsRecordMacConstantTime();
+
         testHMac("HMac-SHA1", output1);
         testHMac("HMac-MD5", outputMD5);
         testHMac("HMac-MD4", outputMD4);
