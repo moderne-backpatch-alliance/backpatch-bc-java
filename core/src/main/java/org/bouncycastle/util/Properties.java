@@ -24,6 +24,16 @@ public class Properties
      */
     public static final String EMULATE_ORACLE = "org.bouncycastle.emulate.oracle";
 
+    /**
+     * Upper bound on the RFC 4211 PKMAC / CMP password-based-MAC iteration count honoured when no
+     * explicit ceiling was supplied to {@link org.bouncycastle.cert.crmf.PKMACBuilder}. The count
+     * travels in the (unauthenticated) PBMParameter of an incoming CMP message and drives an
+     * iterated hash, so an unbounded count makes verifying an attacker-supplied message a
+     * CPU-exhaustion vector. Default 10,000,000, generous enough for any legitimate setting. Read
+     * via {@link #asInteger(String, int)}.
+     */
+    public static final String PKMAC_MAX_ITERATION_COUNT = "org.bouncycastle.pkmac.max_iteration_count";
+
     private Properties()
     {
     }
