@@ -1,6 +1,7 @@
 package org.bouncycastle.pkcs.jcajce;
 
 import java.io.OutputStream;
+import java.math.BigInteger;
 import java.security.Provider;
 
 import javax.crypto.Mac;
@@ -22,6 +23,7 @@ import org.bouncycastle.operator.MacCalculator;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.pkcs.PKCS12MacCalculatorBuilder;
 import org.bouncycastle.pkcs.PKCS12MacCalculatorBuilderProvider;
+import org.bouncycastle.util.Properties;
 
 public class JcePKCS12MacCalculatorBuilderProvider
     implements PKCS12MacCalculatorBuilderProvider
@@ -61,7 +63,7 @@ public class JcePKCS12MacCalculatorBuilderProvider
 
                     final Mac mac = helper.createMac(algorithm.getId());
 
-                    PBEParameterSpec defParams = new PBEParameterSpec(pbeParams.getIV(), pbeParams.getIterations().intValue());
+                    PBEParameterSpec defParams = new PBEParameterSpec(pbeParams.getIV(), validateIterationCount(pbeParams.getIterations()));
 
                     final SecretKey key = new PKCS12Key(password);
 
@@ -101,5 +103,32 @@ public class JcePKCS12MacCalculatorBuilderProvider
                 return new AlgorithmIdentifier(algorithmIdentifier.getAlgorithm(), DERNull.INSTANCE);
             }
         };
+    }
+
+    // the iteration count comes from the unauthenticated PKCS#12 / PKCS#8 structure: bound it
+    // before the key derivation runs (as bcprov's org.bouncycastle.jce.PKCS12Util does)
+    private static int validateIterationCount(BigInteger ic)
+    {
+        if (ic.signum() < 0)
+        {
+            throw new IllegalStateException("negative iteration count found");
+        }
+        if (ic.bitLength() > 31)
+        {
+            throw new IllegalStateException("iteration counts >= 2^31 are not suppported");
+        }
+
+        BigInteger max = Properties.asBigInteger("org.bouncycastle.pkcs12.max_it_count");
+        if (max == null)
+        {
+            max = BigInteger.valueOf(5000000);
+        }
+
+        if (ic.compareTo(max) > 0)
+        {
+            throw new IllegalStateException("iteration count " + ic + " greater than " + max);
+        }
+
+        return ic.intValue();
     }
 }
