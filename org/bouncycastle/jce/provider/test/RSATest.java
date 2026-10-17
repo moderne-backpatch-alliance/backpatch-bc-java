@@ -12,7 +12,14 @@ import org.bouncycastle.asn1.teletrust.TeleTrusTObjectIdentifiers;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.DigestInfo;
 import org.bouncycastle.asn1.x509.X509ObjectIdentifiers;
+import org.bouncycastle.crypto.InvalidCipherTextException;
+import org.bouncycastle.crypto.digests.SHA1Digest;
 import org.bouncycastle.crypto.digests.SHA256Digest;
+import org.bouncycastle.crypto.encodings.OAEPEncoding;
+import org.bouncycastle.crypto.engines.RSAEngine;
+import org.bouncycastle.crypto.generators.MGF1BytesGenerator;
+import org.bouncycastle.crypto.params.MGFParameters;
+import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
 import org.bouncycastle.crypto.params.RSAKeyParameters;
 import org.bouncycastle.crypto.signers.RSADigestSigner;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -617,6 +624,129 @@ public class RSATest
         rawModeTest("RIPEMD128withRSA", TeleTrusTObjectIdentifiers.ripemd128, priv2048Key, pub2048Key, random);
 
         checkNoNullDigestInfoTailBytesChecked(priv2048Key, pub2048Key);
+
+        checkOaepDecodeErrorsUniform();
+    }
+
+    // test written for the backpatch (CVE-2020-26939): every malformed OAEP block fails the same way, with
+    // InvalidCipherTextException("data wrong"), and a well formed one still decodes
+    private void checkOaepDecodeErrorsUniform()
+        throws Exception
+    {
+        RSAKeyParameters pub = new RSAKeyParameters(false, pub2048KeySpec.getModulus(), pub2048KeySpec.getPublicExponent());
+        RSAPrivateCrtKeyParameters priv = new RSAPrivateCrtKeyParameters(priv2048KeySpec.getModulus(),
+            priv2048KeySpec.getPublicExponent(), priv2048KeySpec.getPrivateExponent(), priv2048KeySpec.getPrimeP(),
+            priv2048KeySpec.getPrimeQ(), priv2048KeySpec.getPrimeExponentP(), priv2048KeySpec.getPrimeExponentQ(),
+            priv2048KeySpec.getCrtCoefficient());
+
+        int k = (pub2048KeySpec.getModulus().bitLength() + 7) / 8;
+        int hLen = 20;
+        byte[] lHash = new byte[hLen];
+        SHA1Digest sha1 = new SHA1Digest();
+        sha1.doFinal(lHash, 0);
+
+        byte[] msg = Hex.decode("54859b342c49ea2a");
+        // DB = lHash || PS || 0x01 || M, then variants that are each malformed in one way
+        byte[][] dbs = new byte[4][];
+        for (int v = 0; v != dbs.length; v++)
+        {
+            byte[] db = new byte[k - 1 - hLen];
+            System.arraycopy(lHash, 0, db, 0, hLen);
+            db[db.length - msg.length - 1] = 0x01;
+            System.arraycopy(msg, 0, db, db.length - msg.length, msg.length);
+            dbs[v] = db;
+        }
+        dbs[1][0] ^= 0x01;                                  // wrong label hash
+        dbs[2][dbs[2].length - msg.length - 1] = 0x02;      // wrong separator
+        for (int i = hLen; i != dbs[3].length; i++)         // no separator at all
+        {
+            dbs[3][i] = 0;
+        }
+
+        for (int v = 0; v != dbs.length; v++)
+        {
+            byte[] ct = rawEncrypt(pub, maskOaep(dbs[v], hLen, k));
+            OAEPEncoding oaep = new OAEPEncoding(new RSAEngine());
+            oaep.init(false, priv);
+            if (v == 0)
+            {
+                if (!Arrays.areEqual(msg, oaep.processBlock(ct, 0, ct.length)))
+                {
+                    fail("well formed OAEP block did not decode");
+                }
+                continue;
+            }
+            try
+            {
+                oaep.processBlock(ct, 0, ct.length);
+                fail("malformed OAEP block " + v + " decoded");
+            }
+            catch (InvalidCipherTextException e)
+            {
+                if (!"data wrong".equals(e.getMessage()))
+                {
+                    fail("malformed OAEP block " + v + " reported '" + e.getMessage() + "'");
+                }
+            }
+            catch (RuntimeException e)
+            {
+                fail("malformed OAEP block " + v + " threw " + e);
+            }
+        }
+
+        // a key too small for SHA-1 OAEP is reported the same way, after the RSA operation
+        RSAKeyParameters smallPub = new RSAKeyParameters(false, pubKeySpec.getModulus(), pubKeySpec.getPublicExponent());
+        RSAPrivateCrtKeyParameters smallPriv = new RSAPrivateCrtKeyParameters(privKeySpec.getModulus(),
+            privKeySpec.getPublicExponent(), privKeySpec.getPrivateExponent(), privKeySpec.getPrimeP(),
+            privKeySpec.getPrimeQ(), privKeySpec.getPrimeExponentP(), privKeySpec.getPrimeExponentQ(),
+            privKeySpec.getCrtCoefficient());
+        OAEPEncoding big = new OAEPEncoding(new RSAEngine(), new SHA256Digest());
+        big.init(false, smallPriv);
+        byte[] ct = rawEncrypt(smallPub, new byte[] { 1, 2, 3 });
+        try
+        {
+            big.processBlock(ct, 0, ct.length);
+            fail("OAEP block shorter than 2 * hLen + 1 decoded");
+        }
+        catch (InvalidCipherTextException e)
+        {
+            if (!"data wrong".equals(e.getMessage()))
+            {
+                fail("short OAEP block reported '" + e.getMessage() + "'");
+            }
+        }
+    }
+
+    // EM = maskedSeed || maskedDB (the leading zero octet is implied by the integer), MGF1 with SHA-1, zero seed
+    private static byte[] maskOaep(byte[] db, int hLen, int k)
+    {
+        byte[] seed = new byte[hLen];
+        byte[] em = new byte[k - 1];
+        MGF1BytesGenerator mgf = new MGF1BytesGenerator(new SHA1Digest());
+        byte[] dbMask = new byte[db.length];
+        mgf.init(new MGFParameters(seed));
+        mgf.generateBytes(dbMask, 0, dbMask.length);
+        for (int i = 0; i != db.length; i++)
+        {
+            em[hLen + i] = (byte)(db[i] ^ dbMask[i]);
+        }
+        byte[] seedMask = new byte[hLen];
+        byte[] maskedDb = new byte[db.length];
+        System.arraycopy(em, hLen, maskedDb, 0, maskedDb.length);
+        mgf.init(new MGFParameters(maskedDb));
+        mgf.generateBytes(seedMask, 0, seedMask.length);
+        for (int i = 0; i != hLen; i++)
+        {
+            em[i] = (byte)(seed[i] ^ seedMask[i]);
+        }
+        return em;
+    }
+
+    private static byte[] rawEncrypt(RSAKeyParameters pub, byte[] em)
+    {
+        RSAEngine rsa = new RSAEngine();
+        rsa.init(true, pub);
+        return rsa.processBlock(em, 0, em.length);
     }
 
     /**

@@ -5,6 +5,7 @@ import org.bouncycastle.crypto.DataLengthException;
 import org.bouncycastle.crypto.params.ParametersWithRandom;
 import org.bouncycastle.crypto.params.RSAKeyParameters;
 import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
+import org.bouncycastle.util.Arrays;
 
 import java.math.BigInteger;
 
@@ -142,20 +143,29 @@ class RSACoreEngine
 
                 return tmp;
             }
+
+            return output;
         }
         else
         {
+            byte[]  rv;
             if (output[0] == 0)        // have ended up with an extra zero byte, copy down.
             {
-                byte[]  tmp = new byte[output.length - 1];
+                rv = new byte[output.length - 1];
 
-                System.arraycopy(output, 1, tmp, 0, tmp.length);
-
-                return tmp;
+                System.arraycopy(output, 1, rv, 0, rv.length);
             }
-        }
+            else        // maintain decryption time
+            {
+                rv = new byte[output.length];
 
-        return output;
+                System.arraycopy(output, 0, rv, 0, rv.length);
+            }
+
+            Arrays.fill(output, (byte)0);
+
+            return rv;
+        }
     }
 
     public BigInteger processBlock(BigInteger input)

@@ -6,6 +6,7 @@ import org.bouncycastle.crypto.Digest;
 import org.bouncycastle.crypto.InvalidCipherTextException;
 import org.bouncycastle.crypto.digests.SHA1Digest;
 import org.bouncycastle.crypto.params.ParametersWithRandom;
+import org.bouncycastle.util.Arrays;
 
 import java.security.SecureRandom;
 
@@ -206,27 +207,26 @@ public class OAEPEncoding
         throws InvalidCipherTextException
     {
         byte[]  data = engine.processBlock(in, inOff, inLen);
-        byte[]  block;
 
         //
         // as we may have zeros in our leading bytes for the block we produced
         // on encryption, we need to make sure our decrypted block comes back
         // the same size.
         //
-        if (data.length < engine.getOutputBlockSize())
-        {
-            block = new byte[engine.getOutputBlockSize()];
+        int     blockSize = engine.getOutputBlockSize();
+        boolean wrongData = (blockSize < (2 * defHash.length) + 1);
 
+        // a block too short for the hash is still decoded in full (and refused below), not read out of range
+        byte[]  block = new byte[wrongData ? (2 * defHash.length) + 1 : blockSize];
+
+        if (data.length <= block.length)
+        {
             System.arraycopy(data, 0, block, block.length - data.length, data.length);
         }
         else
         {
-            block = data;
-        }
-
-        if (block.length < (2 * defHash.length) + 1)
-        {
-            throw new InvalidCipherTextException("data too short");
+            System.arraycopy(data, 0, block, 0, block.length);
+            wrongData = true;
         }
 
         //
@@ -252,34 +252,42 @@ public class OAEPEncoding
 
         //
         // check the hash of the encoding params.
+        // long check to try to avoid this been a source of a timing attack.
         //
+        boolean defHashWrong = false;
+
         for (int i = 0; i != defHash.length; i++)
         {
             if (defHash[i] != block[defHash.length + i])
             {
-                throw new InvalidCipherTextException("data hash wrong");
+                defHashWrong = true;
             }
         }
 
         //
         // find the data block
         //
-        int start;
+        int start = block.length;
 
-        for (start = 2 * defHash.length; start != block.length; start++)
+        for (int index = 2 * defHash.length; index != block.length; index++)
         {
-            if (block[start] != 0)
+            if (block[index] != 0 & start == block.length)
             {
-                break;
+                start = index;
             }
         }
 
-        if (start >= (block.length - 1) || block[start] != 1)
-        {
-            throw new InvalidCipherTextException("data start wrong " + start);
-        }
+        // 1.46's ">=" (no empty message) is kept; the index is clamped so a block without a non-zero octet
+        // fails here like any other, not with an ArrayIndexOutOfBoundsException
+        boolean dataStartWrong = (start >= (block.length - 1) | block[Math.min(start, block.length - 1)] != 1);
 
         start++;
+
+        if (defHashWrong | wrongData | dataStartWrong)
+        {
+            Arrays.fill(block, (byte)0);
+            throw new InvalidCipherTextException("data wrong");
+        }
 
         //
         // extract the data block
@@ -318,9 +326,9 @@ public class OAEPEncoding
         byte[]  C = new byte[4];
         int     counter = 0;
 
-        hash.reset();
+        mgf1Hash.reset();
 
-        do
+        while (counter < (length / hashBuf.length))
         {
             ItoOSP(counter, C);
 
@@ -329,8 +337,9 @@ public class OAEPEncoding
             mgf1Hash.doFinal(hashBuf, 0);
 
             System.arraycopy(hashBuf, 0, mask, counter * hashBuf.length, hashBuf.length);
+
+            counter++;
         }
-        while (++counter < (length / hashBuf.length));
 
         if ((counter * hashBuf.length) < length)
         {
