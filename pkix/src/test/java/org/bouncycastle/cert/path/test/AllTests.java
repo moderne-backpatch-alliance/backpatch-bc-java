@@ -43,6 +43,7 @@ public class AllTests
         TestSuite suite = new TestSuite("Cert Path Tests");
 
         suite.addTestSuite(AllTests.class);
+        suite.addTestSuite(org.bouncycastle.pkix.test.CheckNameConstraintsTest.class);
 
         return new BCTestSetup(suite);
     }
