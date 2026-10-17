@@ -19,6 +19,7 @@ public class AllTests
         TestSuite suite = new TestSuite("HQC Internal Tests");
 
         suite.addTestSuite(GFCalculatorTest.class);
+        suite.addTestSuite(FixedWeightSamplerTest.class);
 
         return new BCTestSetup(suite);
     }

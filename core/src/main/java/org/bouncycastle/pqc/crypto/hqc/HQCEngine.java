@@ -371,10 +371,9 @@ class HQCEngine
             int found = 0;
             for (int j = i + 1; j < weight; j++)
             {
-                if (support[j] == support[i])
-                {
-                    found |= 1;
-                }
+                // 1 when equal, as the reference code's found |= support[j] == support[i]; no branch
+                int diff = support[j] ^ support[i];
+                found |= 1 ^ ((diff | -diff) >>> 31);
             }
 
             int mask = -found;
