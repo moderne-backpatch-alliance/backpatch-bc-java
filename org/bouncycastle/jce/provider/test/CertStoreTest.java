@@ -1,9 +1,12 @@
 package org.bouncycastle.jce.provider.test;
 
+import org.bouncycastle.jce.X509LDAPCertStoreParameters;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.jce.provider.X509LDAPCertStoreSpi;
 import org.bouncycastle.util.test.SimpleTest;
 
 import java.io.ByteArrayInputStream;
+import java.lang.reflect.Method;
 import java.security.Security;
 import java.security.cert.CertStore;
 import java.security.cert.CertificateFactory;
@@ -26,6 +29,30 @@ public class CertStoreTest
     {
         basicTest();
         orderTest();
+        ldapFilterEncodeTest();
+    }
+
+    // test written for the backpatch (CVE-2023-33201): the DN value X509LDAPCertStoreSpi puts into its LDAP
+    // search filter is escaped (RFC 2254); its search() wraps the value in '*' wildcards, which stay unescaped
+    private void ldapFilterEncodeTest()
+        throws Exception
+    {
+        X509LDAPCertStoreSpi spi = new X509LDAPCertStoreSpi(
+            new X509LDAPCertStoreParameters.Builder("ldap://localhost:1", "o=test").build());
+        Method parseDN = X509LDAPCertStoreSpi.class.getDeclaredMethod("parseDN", new Class[]{ String.class, String.class });
+        parseDN.setAccessible(true);
+
+        String value = (String)parseDN.invoke(spi, new Object[]{ "CN=chars[*()\\\0], O=Acme", "cn" });
+        if (!"chars[\\2a\\28\\29\\5c\\00]".equals(value))
+        {
+            fail("LDAP filter value not escaped: " + value);
+        }
+
+        value = (String)parseDN.invoke(spi, new Object[]{ "CN=plain name, O=Acme", "cn" });
+        if (!"plain name".equals(value))
+        {
+            fail("plain DN value changed: " + value);
+        }
     }
 
     private void basicTest()

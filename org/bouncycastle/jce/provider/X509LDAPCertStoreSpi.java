@@ -50,6 +50,26 @@ import org.bouncycastle.jce.X509LDAPCertStoreParameters;
 public class X509LDAPCertStoreSpi
     extends CertStoreSpi
 {
+    private static String[] FILTER_ESCAPE_TABLE = new String['\\' + 1];
+
+    static
+    {
+        // Filter encoding table -------------------------------------
+
+        // fill with char itself
+        for (char c = 0; c < FILTER_ESCAPE_TABLE.length; c++)
+        {
+            FILTER_ESCAPE_TABLE[c] = String.valueOf(c);
+        }
+
+        // escapes (RFC2254)
+        FILTER_ESCAPE_TABLE['*'] = "\\2a";
+        FILTER_ESCAPE_TABLE['('] = "\\28";
+        FILTER_ESCAPE_TABLE[')'] = "\\29";
+        FILTER_ESCAPE_TABLE['\\'] = "\\5c";
+        FILTER_ESCAPE_TABLE[0] = "\\00";
+    }
+
     private X509LDAPCertStoreParameters params;
 
     public X509LDAPCertStoreSpi(CertStoreParameters params)
@@ -137,7 +157,7 @@ public class X509LDAPCertStoreSpi
         {
             temp = temp.substring(0, temp.length() - 1);
         }
-        return temp;
+        return filterEncode(temp);
     }
 
     public Collection engineGetCertificates(CertSelector selector)
@@ -394,6 +414,42 @@ public class X509LDAPCertStoreSpi
         }
 
         return crlSet;
+    }
+
+    /**
+     * Escape a value for use in a filter.
+     *
+     * @param value the value to escape.
+     * @return a properly escaped representation of the supplied value.
+     */
+    private String filterEncode(String value)
+    {
+        if (value == null)
+        {
+            return null;
+        }
+
+        // make buffer roomy
+        StringBuffer encodedValue = new StringBuffer(value.length() * 2);
+
+        int length = value.length();
+
+        for (int i = 0; i < length; i++)
+        {
+            char c = value.charAt(i);
+
+            if (c < FILTER_ESCAPE_TABLE.length)
+            {
+                encodedValue.append(FILTER_ESCAPE_TABLE[c]);
+            }
+            else
+            {
+                // default: add the char
+                encodedValue.append(c);
+            }
+        }
+
+        return encodedValue.toString();
     }
 
     /**
