@@ -18,6 +18,7 @@ public class ASN1InputStream
     extends FilterInputStream
     implements BERTags
 {
+    private final int depth;
     private final int limit;
     private final boolean lazyEvaluate;
     private final byte[][] tmpBuffers;
@@ -48,6 +49,11 @@ public class ASN1InputStream
     public ASN1InputStream(byte[] input, boolean lazyEvaluate)
     {
         this(new ByteArrayInputStream(input), input.length, lazyEvaluate);
+    }
+
+    ASN1InputStream(byte[] input, boolean lazyEvaluate, int depth)
+    {
+        this(new ByteArrayInputStream(input), depth, input.length, lazyEvaluate, new byte[11][]);
     }
 
     /**
@@ -83,15 +89,22 @@ public class ASN1InputStream
      */
     public ASN1InputStream(InputStream input, int limit, boolean lazyEvaluate)
     {
-        this(input, limit, lazyEvaluate, new byte[11][]);
+        this(input, StreamUtil.findDepth(), limit, lazyEvaluate, new byte[11][]);
     }
 
-    private ASN1InputStream(InputStream input, int limit, boolean lazyEvaluate, byte[][] tmpBuffers)
+    private ASN1InputStream(InputStream input, int depth, int limit, boolean lazyEvaluate, byte[][] tmpBuffers)
     {
         super(input);
+
+        this.depth = depth;
         this.limit = limit;
         this.lazyEvaluate = lazyEvaluate;
         this.tmpBuffers = tmpBuffers;
+    }
+
+    private ASN1InputStream createSubStream(InputStream sub, int limit, boolean lazyEvaluate) throws IOException
+    {
+        return new ASN1InputStream(sub, StreamUtil.decrementDepth(depth), limit, lazyEvaluate, tmpBuffers);
     }
 
     int getLimit()
@@ -167,7 +180,7 @@ public class ASN1InputStream
             }
             else if (lazyEvaluate)
             {
-                return new LazyEncodedSequence(defIn.toByteArray());
+                return new LazyEncodedSequence(defIn.toByteArray(), StreamUtil.decrementDepth(depth));
             }
             else
             {
@@ -221,7 +234,7 @@ public class ASN1InputStream
         }
 
         IndefiniteLengthInputStream indIn = new IndefiniteLengthInputStream(this, limit);
-        ASN1StreamParser sp = new ASN1StreamParser(indIn, limit, tmpBuffers);
+        ASN1StreamParser sp = ASN1StreamParser.createSubParser(indIn, depth, limit, tmpBuffers);
 
         int tagClass = tag & PRIVATE;
         if (0 != tagClass)
@@ -329,7 +342,7 @@ public class ASN1InputStream
             return new ASN1EncodableVector(0);
         }
 
-        return new ASN1InputStream(defIn, remaining, lazyEvaluate, tmpBuffers).readVector();
+        return createSubStream(defIn, remaining, lazyEvaluate).readVector();
     }
 
     static int readTagNumber(InputStream s, int tag) 
