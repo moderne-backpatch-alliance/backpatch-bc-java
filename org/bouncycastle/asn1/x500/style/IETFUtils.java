@@ -193,34 +193,44 @@ public class IETFUtils
             vBuf.append("#" + bytesToString(Hex.encode(value.getDERObject().getDEREncoded())));
         }
 
-        int     end = vBuf.length();
-        int     index = 0;
+        // Escape in a single linear pass into a fresh builder. The previous implementation escaped by
+        // inserting a backslash into the buffer it was scanning (O(n) per insert), so a value of n
+        // RFC 4514 special characters cost ~n^2/2 character moves: a CPU-exhaustion vector for an
+        // attacker-supplied large RDN reached via X500Name.toString()/equals()/hashCode(). Output is unchanged.
+        int len = vBuf.length();
 
-        if (vBuf.length() >= 2 && vBuf.charAt(0) == '\\' && vBuf.charAt(1) == '#')
+        StringBuffer out = new StringBuffer(len + 16);
+        int index = 0;
+
+        // A leading "\#" (produced above when the value begins with '#') is emitted verbatim.
+        if (len >= 2 && vBuf.charAt(0) == '\\' && vBuf.charAt(1) == '#')
         {
-            index += 2;
+            out.append("\\#");
+            index = 2;
         }
 
-        while (index != end)
+        for (; index < len; index++)
         {
-            if ((vBuf.charAt(index) == ',')
-               || (vBuf.charAt(index) == '"')
-               || (vBuf.charAt(index) == '\\')
-               || (vBuf.charAt(index) == '+')
-               || (vBuf.charAt(index) == '=')
-               || (vBuf.charAt(index) == '<')
-               || (vBuf.charAt(index) == '>')
-               || (vBuf.charAt(index) == ';'))
+            char c = vBuf.charAt(index);
+            switch (c)
             {
-                vBuf.insert(index, "\\");
-                index++;
-                end++;
+            case ',':
+            case '"':
+            case '\\':
+            case '+':
+            case '=':
+            case '<':
+            case '>':
+            case ';':
+                out.append('\\');
+                break;
+            default:
+                break;
             }
-
-            index++;
+            out.append(c);
         }
 
-        return vBuf.toString();
+        return out.toString();
     }
 
     private static String bytesToString(
