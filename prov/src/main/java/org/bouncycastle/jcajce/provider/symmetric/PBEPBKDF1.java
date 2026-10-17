@@ -1,6 +1,7 @@
 package org.bouncycastle.jcajce.provider.symmetric;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.InvalidParameterSpecException;
 
@@ -12,6 +13,7 @@ import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.jcajce.provider.config.ConfigurableProvider;
 import org.bouncycastle.jcajce.provider.symmetric.util.BaseAlgorithmParameters;
 import org.bouncycastle.jcajce.provider.util.AlgorithmProvider;
+import org.bouncycastle.util.Properties;
 
 public class PBEPBKDF1
 {
@@ -80,7 +82,31 @@ public class PBEPBKDF1
             byte[] params)
             throws IOException
         {
-            this.params = PBEParameter.getInstance(params);
+            PBEParameter pbeParams = PBEParameter.getInstance(params);
+
+            checkIterationCount(pbeParams.getIterationCount());
+
+            this.params = pbeParams;
+        }
+
+        /**
+         * The iteration count comes from an untrusted encoding (the parameters of a PBES1 or PKCS#12 PBE
+         * AlgorithmIdentifier) and drives the derivation before anything can be verified, so it is bounded as
+         * PBEPBKDF2 bounds its own, and a negative or beyond-int value is rejected rather than narrowed.
+         */
+        private static void checkIterationCount(BigInteger iterationCount)
+            throws IOException
+        {
+            if (iterationCount.signum() < 0 || iterationCount.bitLength() > 31)
+            {
+                throw new IOException("invalid iteration count (" + iterationCount + ")");
+            }
+
+            int maxIT = propertyAsInteger(Properties.PBE_MAX_ITERATION_COUNT, 10000000);
+            if (iterationCount.intValue() > maxIT)
+            {
+                throw new IOException("iteration count (" + iterationCount + ") greater than " + maxIT);
+            }
         }
 
         protected void engineInit(
@@ -121,5 +147,13 @@ public class PBEPBKDF1
             provider.addAlgorithm("Alg.Alias.AlgorithmParameters." + PKCSObjectIdentifiers.pbeWithSHA1AndDES_CBC, "PBKDF1");
             provider.addAlgorithm("Alg.Alias.AlgorithmParameters." + PKCSObjectIdentifiers.pbeWithSHA1AndRC2_CBC, "PBKDF1");
         }
+    }
+
+    private static int propertyAsInteger(String propertyName, int defaultValue)
+    {
+        // what Properties.asInteger(String, int) does in later releases; 1.69's Properties has no such method
+        String p = Properties.getPropertyValue(propertyName);
+
+        return (p != null) ? Integer.parseInt(p) : defaultValue;
     }
 }

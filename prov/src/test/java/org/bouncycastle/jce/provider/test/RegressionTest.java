@@ -59,6 +59,7 @@ public class RegressionTest
         new ECEncodingTest(),
         new AlgorithmParametersTest(),
         new NISTCertPathTest(),
+        new PBEIterationCountTest(),
         new PKIXPolicyMappingTest(),
         new SlotTwoTest(),
         new PKIXNameConstraintsTest(),
