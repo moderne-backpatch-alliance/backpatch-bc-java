@@ -35,6 +35,7 @@ import org.bouncycastle.jce.provider.X509AttrCertParser;
 import org.bouncycastle.jce.provider.X509CRLParser;
 import org.bouncycastle.jce.provider.X509CertPairParser;
 import org.bouncycastle.jce.provider.X509CertParser;
+import org.bouncycastle.ldap.LDAPUtils;
 import org.bouncycastle.util.StoreException;
 import org.bouncycastle.x509.X509AttributeCertStoreSelector;
 import org.bouncycastle.x509.X509AttributeCertificate;
@@ -64,7 +65,6 @@ import org.bouncycastle.x509.X509CertificatePair;
  */
 public class LDAPStoreHelper
 {
-
     // TODO: cache results
 
     private X509LDAPCertStoreParameters params;
@@ -94,7 +94,8 @@ public class LDAPStoreHelper
      */
     private static final String URL_CONTEXT_PREFIX = "com.sun.jndi.url";
 
-    private DirContext connectLDAP() throws NamingException
+    private DirContext connectLDAP()
+        throws NamingException
     {
         Properties props = new Properties();
         props.setProperty(Context.INITIAL_CONTEXT_FACTORY, LDAP_PROVIDER);
@@ -108,47 +109,6 @@ public class LDAPStoreHelper
 
         DirContext ctx = new InitialDirContext(props);
         return ctx;
-    }
-
-    private String parseDN(String subject, String dNAttributeName)
-    {
-        String temp = subject;
-        int begin = temp.toLowerCase().indexOf(
-            dNAttributeName.toLowerCase() + "=");
-        if (begin == -1)
-        {
-            return "";
-        }
-        temp = temp.substring(begin + dNAttributeName.length());
-        int end = temp.indexOf(',');
-        if (end == -1)
-        {
-            end = temp.length();
-        }
-        while (temp.charAt(end - 1) == '\\')
-        {
-            end = temp.indexOf(',', end + 1);
-            if (end == -1)
-            {
-                end = temp.length();
-            }
-        }
-        temp = temp.substring(0, end);
-        begin = temp.indexOf('=');
-        temp = temp.substring(begin + 1);
-        if (temp.charAt(0) == ' ')
-        {
-            temp = temp.substring(1);
-        }
-        if (temp.startsWith("\""))
-        {
-            temp = temp.substring(1);
-        }
-        if (temp.endsWith("\""))
-        {
-            temp = temp.substring(0, temp.length() - 1);
-        }
-        return temp;
     }
 
     private Set createCerts(List list, X509CertStoreSelector xselector)
@@ -223,7 +183,7 @@ public class LDAPStoreHelper
         {
             for (int i = 0; i < subjectAttributeNames.length; i++)
             {
-                attrValue = parseDN(subject, subjectAttributeNames[i]);
+                attrValue = LDAPUtils.parseDN(subject, subjectAttributeNames[i]);
                 list
                     .addAll(search(attrNames, "*" + attrValue + "*",
                         attrs));
@@ -234,7 +194,7 @@ public class LDAPStoreHelper
             attrValue = serial;
             list.addAll(search(
                 splitString(params.getSearchForSerialNumberIn()),
-                                                  attrValue, attrs));
+                attrValue, attrs));
         }
         if (serial == null && subject == null)
         {
@@ -243,7 +203,6 @@ public class LDAPStoreHelper
 
         return list;
     }
-
 
 
     /**
@@ -289,7 +248,7 @@ public class LDAPStoreHelper
         {
             for (int i = 0; i < subjectAttributeNames.length; i++)
             {
-                attrValue = parseDN(subject, subjectAttributeNames[i]);
+                attrValue = LDAPUtils.parseDN(subject, subjectAttributeNames[i]);
                 list
                     .addAll(search(attrNames, "*" + attrValue + "*",
                         attrs));
@@ -384,7 +343,7 @@ public class LDAPStoreHelper
         {
             for (int i = 0; i < subjectAttributeNames.length; i++)
             {
-                attrValue = parseDN(subject, subjectAttributeNames[i]);
+                attrValue = LDAPUtils.parseDN(subject, subjectAttributeNames[i]);
                 list
                     .addAll(search(attrNames, "*" + attrValue + "*",
                         attrs));
@@ -440,11 +399,11 @@ public class LDAPStoreHelper
         if (xselector.getAttrCertificateChecking() != null)
         {
             Principal principals[] = xselector.getAttrCertificateChecking().getIssuer().getPrincipals();
-            for (int i=0; i<principals.length; i++)
+            for (int i = 0; i < principals.length; i++)
             {
                 if (principals[i] instanceof X500Principal)
                 {
-                    issuers.add(principals[i]);        
+                    issuers.add(principals[i]);
                 }
             }
         }
@@ -456,7 +415,7 @@ public class LDAPStoreHelper
 
             for (int i = 0; i < issuerAttributeNames.length; i++)
             {
-                attrValue = parseDN(issuer, issuerAttributeNames[i]);
+                attrValue = LDAPUtils.parseDN(issuer, issuerAttributeNames[i]);
                 list
                     .addAll(search(attrNames, "*" + attrValue + "*",
                         attrs));
@@ -484,7 +443,8 @@ public class LDAPStoreHelper
      *                        directory.
      */
     private List search(String attributeNames[], String attributeValue,
-                        String[] attrs) throws StoreException
+                        String[] attrs)
+        throws StoreException
     {
         String filter = null;
         if (attributeNames == null)
@@ -598,7 +558,8 @@ public class LDAPStoreHelper
     }
 
     private Set createCrossCertificatePairs(List list,
-                                            X509CertPairStoreSelector xselector) throws StoreException
+                                            X509CertPairStoreSelector xselector)
+        throws StoreException
     {
         Set certPairSet = new HashSet();
 
@@ -625,7 +586,7 @@ public class LDAPStoreHelper
                     pair = new X509CertificatePair(new CertificatePair(
                         Certificate
                             .getInstance(new ASN1InputStream(
-                            forward).readObject()),
+                                forward).readObject()),
                         Certificate
                             .getInstance(new ASN1InputStream(
                                 reverse).readObject())));
@@ -651,7 +612,8 @@ public class LDAPStoreHelper
     }
 
     private Set createAttributeCertificates(List list,
-                                            X509AttributeCertStoreSelector xselector) throws StoreException
+                                            X509AttributeCertStoreSelector xselector)
+        throws StoreException
     {
         Set certSet = new HashSet();
 
@@ -718,12 +680,14 @@ public class LDAPStoreHelper
      * The attributeCertificateRevocationList holds a list of attribute
      * certificates that have been revoked.
      * </p>
+     *
      * @param selector The CRL selector to use to find the CRLs.
      * @return A possible empty collection with CRLs.
      * @throws StoreException
      */
     public Collection getAttributeCertificateRevocationLists(
-        X509CRLStoreSelector selector) throws StoreException
+        X509CRLStoreSelector selector)
+        throws StoreException
     {
         String[] attrs = splitString(params
             .getAttributeCertificateRevocationListAttribute());
@@ -753,12 +717,14 @@ public class LDAPStoreHelper
      * The attributeAuthorityList holds a list of AA certificates that have been
      * revoked.
      * </p>
+     *
      * @param selector The CRL selector to use to find the CRLs.
      * @return A possible empty collection with CRLs
      * @throws StoreException
      */
     public Collection getAttributeAuthorityRevocationLists(
-        X509CRLStoreSelector selector) throws StoreException
+        X509CRLStoreSelector selector)
+        throws StoreException
     {
         String[] attrs = splitString(params.getAttributeAuthorityRevocationListAttribute());
         String attrNames[] = splitString(params
@@ -788,7 +754,8 @@ public class LDAPStoreHelper
      * @throws StoreException
      */
     public Collection getCrossCertificatePairs(
-        X509CertPairStoreSelector selector) throws StoreException
+        X509CertPairStoreSelector selector)
+        throws StoreException
     {
         String[] attrs = splitString(params.getCrossCertificateAttribute());
         String attrNames[] = splitString(params.getLdapCrossCertificateAttributeName());
@@ -849,6 +816,7 @@ public class LDAPStoreHelper
      * <p>
      * The aAcertificate holds the privileges of an attribute authority.
      * </p>
+     *
      * @param selector The selector to find the attribute certificates.
      * @return A possible empty collection with attribute certificates.
      * @throws StoreException
@@ -881,12 +849,14 @@ public class LDAPStoreHelper
      * authority and holds a description of the privilege and its delegation
      * rules.
      * </p>
+     *
      * @param selector The selector to find the attribute certificates.
      * @return A possible empty collection with attribute certificates.
      * @throws StoreException
      */
     public Collection getAttributeDescriptorCertificates(
-        X509AttributeCertStoreSelector selector) throws StoreException
+        X509AttributeCertStoreSelector selector)
+        throws StoreException
     {
         String[] attrs = splitString(params.getAttributeDescriptorCertificateAttribute());
         String attrNames[] = splitString(params
@@ -915,6 +885,7 @@ public class LDAPStoreHelper
      * store self-issued certificates (if any) and certificates issued to this
      * CA by CAs in the same realm as this CA.
      * </p>
+     *
      * @param selector The selector to find the certificates.
      * @return A possible empty collection with certificates.
      * @throws StoreException
@@ -947,7 +918,8 @@ public class LDAPStoreHelper
      * @throws StoreException
      */
     public Collection getDeltaCertificateRevocationLists(
-        X509CRLStoreSelector selector) throws StoreException
+        X509CRLStoreSelector selector)
+        throws StoreException
     {
         String[] attrs = splitString(params.getDeltaRevocationListAttribute());
         String attrNames[] = splitString(params.getLdapDeltaRevocationListAttributeName());
@@ -972,12 +944,14 @@ public class LDAPStoreHelper
      * <p>
      * The attributeCertificateAttribute holds the privileges of a user
      * </p>
+     *
      * @param selector The selector to find the attribute certificates.
      * @return A possible empty collection with attribute certificates.
      * @throws StoreException
      */
     public Collection getAttributeCertificateAttributes(
-        X509AttributeCertStoreSelector selector) throws StoreException
+        X509AttributeCertStoreSelector selector)
+        throws StoreException
     {
         String[] attrs = splitString(params.getAttributeCertificateAttributeAttribute());
         String attrNames[] = splitString(params
@@ -1006,7 +980,8 @@ public class LDAPStoreHelper
      * @throws StoreException
      */
     public Collection getCertificateRevocationLists(
-        X509CRLStoreSelector selector) throws StoreException
+        X509CRLStoreSelector selector)
+        throws StoreException
     {
         String[] attrs = splitString(params.getCertificateRevocationListAttribute());
         String attrNames[] = splitString(params
