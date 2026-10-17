@@ -1217,6 +1217,11 @@ public class RFC3280CertPathUtilities
             }
             if (altName != null)
             {
+                /*
+                 * NOTE: PKIXCertPathReviewer limits the number of alternative names, to avoid a denial-of-service
+                 * attack. That does not appear to be an issue for validation, so no limit is applied.
+                 */
+
                 GeneralName[] genNames = null;
                 try
                 {

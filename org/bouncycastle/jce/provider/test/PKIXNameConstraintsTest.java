@@ -1,12 +1,27 @@
 package org.bouncycastle.jce.provider.test;
 
+import java.security.Security;
+import java.security.cert.CertPath;
+import java.security.cert.CertificateFactory;
+import java.security.cert.PKIXParameters;
+import java.security.cert.TrustAnchor;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralSubtree;
+import org.bouncycastle.i18n.LocalizedMessage;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.provider.PKIXNameConstraintValidator;
 import org.bouncycastle.jce.provider.PKIXNameConstraintValidatorException;
 import org.bouncycastle.util.test.SimpleTest;
+import org.bouncycastle.x509.PKIXCertPathReviewer;
 
 /**
  * Test class for {@link PKIXNameConstraintValidator}.
@@ -215,6 +230,65 @@ public class PKIXNameConstraintsTest
             uriintersect);
         testConstraints(GeneralName.iPAddress, testIP, testIPIsConstraint,
             testIPIsNotConstraint, ip1, ip2, ipunion, ipintersect);
+        testPKIXCertPathReviewerCapsSubjectAltNames();
+    }
+
+    // CVE-2025-8916: upstream's certificates (bc-test-data 9cc1de5 pkix/mal-*.crt, from 310b30a4f's test); the
+    // assertion on the cap's error is written for the backpatch, as upstream's own reviewer test passes unfixed
+    private void testPKIXCertPathReviewerCapsSubjectAltNames()
+        throws Exception
+    {
+        if (Security.getProvider("BC") == null)
+        {
+            Security.addProvider(new BouncyCastleProvider());
+        }
+
+        CertificateFactory cf = CertificateFactory.getInstance("X.509", "BC");
+
+        X509Certificate root = (X509Certificate)cf.generateCertificate(getClass().getResourceAsStream("mal-root.crt"));
+        X509Certificate ca1 = (X509Certificate)cf.generateCertificate(getClass().getResourceAsStream("mal-ca1.crt"));
+        X509Certificate ca2 = (X509Certificate)cf.generateCertificate(getClass().getResourceAsStream("mal-ca2.crt"));
+        X509Certificate leaf = (X509Certificate)cf.generateCertificate(getClass().getResourceAsStream("mal-leaf.crt"));
+
+        List certchain = new ArrayList();
+        certchain.add(root);
+        certchain.add(ca1);
+        certchain.add(ca2);
+        certchain.add(leaf);
+
+        CertPath reviewerPath = cf.generateCertPath(certchain);
+
+        Set trust = new HashSet();
+        trust.add(new TrustAnchor(root, null));
+        PKIXParameters reviewerParams = new PKIXParameters(trust);
+
+        PKIXCertPathReviewer certPathReviewer = new PKIXCertPathReviewer();
+        certPathReviewer.init(reviewerPath, reviewerParams);
+
+        if (certPathReviewer.isValidCertPath())
+        {
+            fail("reviewer accepted the path");
+        }
+        if (!hasErrorId(certPathReviewer.getErrors(), "CertPathReviewer.subjAltNameExtError"))
+        {
+            fail("reviewer did not refuse the subject alt names");
+        }
+    }
+
+    private static boolean hasErrorId(List[] errors, String id)
+    {
+        for (int i = 0; i != errors.length; i++)
+        {
+            for (Iterator it = errors[i].iterator(); it.hasNext();)
+            {
+                Object msg = it.next();
+                if (msg instanceof LocalizedMessage && id.equals(((LocalizedMessage)msg).getId()))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
