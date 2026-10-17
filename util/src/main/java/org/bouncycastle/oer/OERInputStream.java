@@ -32,6 +32,8 @@ public class OERInputStream
 
     private static final int[] bits = new int[]{1, 2, 4, 8, 16, 32, 64, 128};
     private int maxByteAllocation = 1024 * 1024;
+    private int maxNestingDepth = 256;
+    private int decodeDepth = 0;
 
 //    public interface OERHandler
 //    {
@@ -77,7 +79,28 @@ public class OERInputStream
     public ASN1Object parse(OERDefinition.Element element)
         throws Exception
     {
+        // Hard cap on recursion depth. The IEEE 1609.2 OER schema is cyclic (an Ieee1609Dot2Data can
+        // nest inside its own SignedData payload) and the CHOICE tag / optional-present bits are
+        // attacker-controlled, so without a bound a few KB of crafted input drives unbounded
+        // recursive-descent parsing into a StackOverflowError before any signature check.
+        if (++decodeDepth > maxNestingDepth)
+        {
+            decodeDepth--;
+            throw new IOException("OER decoder exceeded maximum nesting depth of " + maxNestingDepth);
+        }
+        try
+        {
+            return parseInternal(element);
+        }
+        finally
+        {
+            decodeDepth--;
+        }
+    }
 
+    private ASN1Object parseInternal(OERDefinition.Element element)
+        throws Exception
+    {
         switch (element.baseType)
         {
 
@@ -99,6 +122,14 @@ public class OERInputStream
             //
             int j = BigIntegers.fromUnsignedByteArray(lenEnc).intValue();
 
+            // Every OER seq-of element occupies at least one byte, so a declared count larger than the
+            // bytes left in the input is truncated or hostile. Bound it before the parse loop so a few
+            // count bytes (e.g. a long-form 7F FF FF FF) cannot drive ~2^31 parse iterations and object
+            // allocations before the per-element reads run out of input.
+            if (j < 0 || j > available())
+            {
+                throw new IOException("SEQUENCE OF length " + j + " out of range");
+            }
 
             debugPrint(element.appendLabel("(len = " + j + ")"));
 
@@ -212,7 +243,10 @@ public class OERInputStream
             if (bytesToRead != 0) // Fixed width
             {
                 data = allocateArray(Math.abs(bytesToRead));
-                Streams.readFully(this, data);
+                if (Streams.readFully(this, data) != data.length)
+                {
+                    throw new EOFException("could not read all of fixed-width integer");
+                }
                 switch (data.length)
                 {
                 case 1:
@@ -366,7 +400,11 @@ public class OERInputStream
         case EXTENSION:
 
             LengthInfo li = readLength();
-            byte[] value = new byte[li.intLength()];
+            // Route through allocateArray so the attacker-controlled open-type length is bounded by
+            // maxByteAllocation, like every other length-driven allocation in this decoder; a raw
+            // new byte[li.intLength()] here let a long-form length (e.g. 84 7F FF FF FF) drive an
+            // immediate OutOfMemoryError.
+            byte[] value = allocateArray(li.intLength());
             if (Streams.readFully(this, value) != li.intLength())
             {
                 throw new IOException("could not read all of count of open value in choice (...) ");

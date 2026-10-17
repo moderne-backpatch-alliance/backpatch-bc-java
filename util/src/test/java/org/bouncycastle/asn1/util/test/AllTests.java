@@ -40,6 +40,7 @@ public class AllTests
         suite.addTestSuite(OctetStringTest.class);
         suite.addTestSuite(ParseTest.class);
         suite.addTestSuite(GetInstanceTest.class);
+        suite.addTestSuite(org.bouncycastle.oer.test.OERInputStreamLimitTest.class);
         
         return new BCTestSetup(suite);
     }
