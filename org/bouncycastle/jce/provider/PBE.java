@@ -1,5 +1,8 @@
 package org.bouncycastle.jce.provider;
 
+import java.security.AccessController;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.PrivilegedAction;
 import java.security.spec.AlgorithmParameterSpec;
 
 import javax.crypto.spec.PBEKeySpec;
@@ -105,6 +108,73 @@ public interface PBE
         }
 
         /**
+         * Check an iteration count before it drives a derivation. The count usually arrives in an
+         * unauthenticated parameters field (PBES1, PKCS#12 PBE) and the KDF runs before anything can be
+         * verified, so an unbounded count is a CPU-exhaustion vector; the bound is
+         * org.bouncycastle.pbe.max_iteration_count (default 10,000,000), as for PBKDF2.
+         *
+         * @param iterationCount the iteration count to check.
+         * @return null if the count is acceptable, otherwise the reason it is not.
+         */
+        static String checkIterationCount(int iterationCount)
+        {
+            if (iterationCount < 0)
+            {
+                return "negative iteration count (" + iterationCount + ")";
+            }
+
+            int maxIT = getMaxIterationCount();
+            if (iterationCount > maxIT)
+            {
+                return "iteration count (" + iterationCount + ") greater than " + maxIT;
+            }
+
+            return null;
+        }
+
+        /**
+         * Check the iteration count of a PBEParameterSpec before a Cipher or Mac derives from it.
+         *
+         * @param spec the parameter spec; anything other than a PBEParameterSpec is ignored.
+         * @throws InvalidAlgorithmParameterException if the iteration count is out of range.
+         */
+        static void checkIterationCount(AlgorithmParameterSpec spec)
+            throws InvalidAlgorithmParameterException
+        {
+            if (spec instanceof PBEParameterSpec)
+            {
+                String problem = checkIterationCount(((PBEParameterSpec)spec).getIterationCount());
+                if (problem != null)
+                {
+                    throw new InvalidAlgorithmParameterException(problem);
+                }
+            }
+        }
+
+        static void validateIterationCount(int iterationCount)
+        {
+            String problem = checkIterationCount(iterationCount);
+            if (problem != null)
+            {
+                throw new IllegalArgumentException(problem);
+            }
+        }
+
+        // 1.46 has no org.bouncycastle.util.Properties: upstream's property, read as a system property
+        static int getMaxIterationCount()
+        {
+            String value = (String)AccessController.doPrivileged(new PrivilegedAction()
+            {
+                public Object run()
+                {
+                    return System.getProperty("org.bouncycastle.pbe.max_iteration_count");
+                }
+            });
+
+            return (value != null) ? Integer.parseInt(value.trim()) : 10000000;
+        }
+
+        /**
          * construct a key and iv (if necessary) suitable for use with a 
          * Cipher.
          */
@@ -119,6 +189,8 @@ public interface PBE
             }
     
             PBEParameterSpec        pbeParam = (PBEParameterSpec)spec;
+            validateIterationCount(pbeParam.getIterationCount());
+
             PBEParametersGenerator  generator = makePBEGenerator(pbeKey.getType(), pbeKey.getDigest());
             byte[]                  key = pbeKey.getEncoded();
             CipherParameters        param;
@@ -178,6 +250,8 @@ public interface PBE
             }
     
             PBEParameterSpec        pbeParam = (PBEParameterSpec)spec;
+            validateIterationCount(pbeParam.getIterationCount());
+
             PBEParametersGenerator  generator = makePBEGenerator(pbeKey.getType(), pbeKey.getDigest());
             byte[]                  key = pbeKey.getEncoded();
             CipherParameters        param;
@@ -210,6 +284,8 @@ public interface PBE
             int                     keySize,
             int                     ivSize)
         {    
+            validateIterationCount(keySpec.getIterationCount());
+
             PBEParametersGenerator  generator = makePBEGenerator(type, hash);
             byte[]                  key;
             CipherParameters        param;
@@ -253,6 +329,8 @@ public interface PBE
             int                     hash,
             int                     keySize)
         {
+            validateIterationCount(keySpec.getIterationCount());
+
             PBEParametersGenerator  generator = makePBEGenerator(type, hash);
             byte[]                  key;
             CipherParameters        param;

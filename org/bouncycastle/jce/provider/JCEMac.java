@@ -83,6 +83,7 @@ public class JCEMac
             }
             else if (params instanceof PBEParameterSpec)
             {
+                PBE.Util.checkIterationCount(params);
                 param = PBE.Util.makePBEMacParameters(k, params);
             }
             else

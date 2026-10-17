@@ -142,7 +142,13 @@ public class JCESecretKeyFactory
                 {
                     return new JCEPBEKey(this.algName, this.algOid, scheme, digest, keySize, ivSize, pbeSpec, null);
                 }
-                
+
+                String problem = Util.checkIterationCount(pbeSpec.getIterationCount());
+                if (problem != null)
+                {
+                    throw new InvalidKeySpecException(problem);
+                }
+
                 if (forCipher)
                 {
                     param = Util.makePBEParameters(pbeSpec, scheme, digest, keySize, ivSize);
@@ -200,13 +206,22 @@ public class JCESecretKeyFactory
                     return new JCEPBEKey(this.algName, this.algOid, scheme, digest, keySize, ivSize, pbeSpec, null);
                 }
                 
-                if (forCipher)
+                try
                 {
-                    param = Util.makePBEParameters(pbeSpec, scheme, digest, keySize, ivSize);
+                    if (forCipher)
+                    {
+                        param = Util.makePBEParameters(pbeSpec, scheme, digest, keySize, ivSize);
+                    }
+                    else
+                    {
+                        param = Util.makePBEMacParameters(pbeSpec, scheme, digest, keySize);
+                    }
                 }
-                else
+                catch (IllegalArgumentException e)
                 {
-                    param = Util.makePBEMacParameters(pbeSpec, scheme, digest, keySize);
+                    InvalidKeySpecException ikse = new InvalidKeySpecException(e.getMessage());
+                    ikse.initCause(e);
+                    throw ikse;
                 }
 
                 KeyParameter kParam;

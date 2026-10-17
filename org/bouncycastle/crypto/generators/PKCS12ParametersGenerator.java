@@ -133,7 +133,8 @@ public class PKCS12ParametersGenerator
             digest.update(D, 0, D.length);
             digest.update(I, 0, I.length);
             digest.doFinal(A, 0);
-            for (int j = 1; j != iterationCount; j++)
+            // "<", not "!=": with "!=" an iteration count of 0 ran 2^32 - 1 rounds
+            for (int j = 1; j < iterationCount; j++)
             {
                 digest.update(A, 0, A.length);
                 digest.doFinal(A, 0);

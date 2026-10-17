@@ -2,11 +2,15 @@ package org.bouncycastle.jce.provider.test;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.math.BigInteger;
 import java.security.AlgorithmParameters;
+import java.security.InvalidAlgorithmParameterException;
 import java.security.Security;
+import java.security.spec.InvalidKeySpecException;
 import java.security.spec.InvalidParameterSpecException;
 
 import javax.crypto.Cipher;
+import javax.crypto.EncryptedPrivateKeyInfo;
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
@@ -16,12 +20,15 @@ import javax.crypto.spec.PBEParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.bouncycastle.asn1.ASN1EncodableVector;
+import org.bouncycastle.asn1.ASN1Object;
 import org.bouncycastle.asn1.DERInteger;
 import org.bouncycastle.asn1.DERObject;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.bc.BCObjectIdentifiers;
+import org.bouncycastle.asn1.DERObjectIdentifier;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.crypto.Digest;
 import org.bouncycastle.crypto.PBEParametersGenerator;
 import org.bouncycastle.crypto.digests.SHA1Digest;
@@ -33,6 +40,7 @@ import org.bouncycastle.crypto.params.ParametersWithIV;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMReader;
 import org.bouncycastle.openssl.PasswordFinder;
+import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Base64;
 import org.bouncycastle.util.encoders.Hex;
 import org.bouncycastle.util.test.SimpleTest;
@@ -473,10 +481,301 @@ public class PBETest
             + "\n-----END ENCRYPTED PRIVATE KEY-----\n";
     }
 
+    // CVE-2026-97873: upstream 4044aea58's PBEIterationCountTest, adapted to 1.46: no PBKDF1 parameters, no
+    // raw-key PBE derivation, no PKCS12Key and no PBEWithHMacSHA256 at 1.46, and SimpleTest has no isTrue/isEquals.
+    // The legacy PBES1 and PKCS#12 PBE families bound the iteration count they derive with, as PBKDF2 does, since the
+    // count usually arrives in an unauthenticated parameters field and the derivation runs before anything can be
+    // verified.
+    private static final int TEST_MAX = 1000;
+
+    // well above TEST_MAX, but cheap enough that a build without the bound finishes the derivation quickly
+    private static final int OVER_MAX = 1000000;
+
+    private static final byte[] SALT = new byte[8];
+
+    private void testPBEIterationCount()
+        throws Exception
+    {
+        String oldMax = System.getProperty("org.bouncycastle.pbe.max_iteration_count");
+        System.setProperty("org.bouncycastle.pbe.max_iteration_count", Integer.toString(TEST_MAX));
+        try
+        {
+            testIterationAlgorithmParameters();
+            testIterationCipher();
+            testIterationMac();
+            testIterationSecretKeyFactory();
+            testIterationEncryptedPrivateKeyInfo();
+            testIterationWithinBound();
+        }
+        finally
+        {
+            if (oldMax == null)
+            {
+                System.getProperties().remove("org.bouncycastle.pbe.max_iteration_count");
+            }
+            else
+            {
+                System.setProperty("org.bouncycastle.pbe.max_iteration_count", oldMax);
+            }
+        }
+
+        testIterationDefaultBound();
+    }
+
+    private void testIterationAlgorithmParameters()
+        throws Exception
+    {
+        String[] names = { "PKCS12PBE", PKCSObjectIdentifiers.pbeWithSHAAnd3_KeyTripleDES_CBC.getId(),
+            PKCSObjectIdentifiers.pbeWithSHAAnd2_KeyTripleDES_CBC.getId() };
+
+        for (int i = 0; i != names.length; i++)
+        {
+            checkParamsRejected(names[i], BigInteger.valueOf(OVER_MAX), "iteration count (" + OVER_MAX + ") greater than " + TEST_MAX);
+            checkParamsRejected(names[i], BigInteger.valueOf(Integer.MAX_VALUE), "iteration count (2147483647) greater than " + TEST_MAX);
+            // 2^32 used to be narrowed to 0 by intValue()
+            checkParamsRejected(names[i], BigInteger.valueOf(1).shiftLeft(32), "invalid iteration count (4294967296)");
+            checkParamsRejected(names[i], BigInteger.valueOf(-1), "invalid iteration count (-1)");
+
+            AlgorithmParameters params = AlgorithmParameters.getInstance(names[i], "BC");
+            params.init(pbeParams(BigInteger.valueOf(TEST_MAX)));
+            if (((PBEParameterSpec)params.getParameterSpec(PBEParameterSpec.class)).getIterationCount() != TEST_MAX)
+            {
+                fail(names[i] + ": count within the bound not kept");
+            }
+        }
+    }
+
+    private void checkParamsRejected(String name, BigInteger count, String message)
+        throws Exception
+    {
+        AlgorithmParameters params = AlgorithmParameters.getInstance(name, "BC");
+        try
+        {
+            params.init(pbeParams(count));
+            fail(name + ": count " + count + " accepted");
+        }
+        catch (IOException e)
+        {
+            if (!message.equals(e.getMessage()))
+            {
+                fail(name + ": " + e.getMessage());
+            }
+        }
+    }
+
+    private void testIterationCipher()
+        throws Exception
+    {
+        SecretKey pbeKey = pbeKey("PBEWithSHAAnd3-KeyTripleDES-CBC");
+
+        // JCEPBEKey without derived parameters, block cipher
+        checkCipherRejected("PBEWithSHAAnd3-KeyTripleDES-CBC", pbeKey, OVER_MAX);
+        checkCipherRejected("PBEWithSHAAnd3-KeyTripleDES-CBC", pbeKey, -1);
+        // PBES1 (PKCS#5 scheme 1)
+        checkCipherRejected("PBEWithMD5AndDES", pbeKey("PBEWithMD5AndDES"), OVER_MAX);
+        // stream cipher
+        checkCipherRejected("PBEWithSHAAnd128BitRC4", pbeKey("PBEWithSHAAnd128BitRC4"), OVER_MAX);
+    }
+
+    private void checkCipherRejected(String name, SecretKey key, int count)
+        throws Exception
+    {
+        Cipher cipher = Cipher.getInstance(name, "BC");
+        try
+        {
+            cipher.init(Cipher.DECRYPT_MODE, key, new PBEParameterSpec(SALT, count));
+            fail(name + ": count " + count + " accepted");
+        }
+        catch (InvalidAlgorithmParameterException e)
+        {
+            if (!isIterationCountMessage(e.getMessage()))
+            {
+                fail(name + ": " + e.getMessage());
+            }
+        }
+    }
+
+    private void testIterationMac()
+        throws Exception
+    {
+        Mac mac = Mac.getInstance("PBEWithHMacSHA1", "BC");
+        try
+        {
+            mac.init(pbeKey("PBEWithHMacSHA1"), new PBEParameterSpec(SALT, OVER_MAX));
+            fail("PBEWithHMacSHA1: count accepted");
+        }
+        catch (InvalidAlgorithmParameterException e)
+        {
+            if (!isIterationCountMessage(e.getMessage()))
+            {
+                fail("PBEWithHMacSHA1: " + e.getMessage());
+            }
+        }
+    }
+
+    private void testIterationSecretKeyFactory()
+        throws Exception
+    {
+        // the PBE key factory (PKCS#12 cipher and MAC), and the DES key factory's own derivation (PBES1)
+        String[] names = { "PBEWithSHAAnd3-KeyTripleDES-CBC", "PBEWithHMacSHA1", "PBEWithMD5AndDES" };
+
+        for (int i = 0; i != names.length; i++)
+        {
+            SecretKeyFactory fact = SecretKeyFactory.getInstance(names[i], "BC");
+            try
+            {
+                fact.generateSecret(new PBEKeySpec("password".toCharArray(), SALT, OVER_MAX, 64));
+                fail(names[i] + ": count accepted");
+            }
+            catch (InvalidKeySpecException e)
+            {
+                if (!isIterationCountMessage(e.getMessage()))
+                {
+                    fail(names[i] + ": " + e.getMessage());
+                }
+            }
+        }
+    }
+
+    /**
+     * The report's end-to-end case: EncryptedPrivateKeyInfo.getKeySpec() on a PKCS#12 PBE blob, where the JDK's own
+     * provider decodes the parameters and BC's Cipher only ever sees the resulting PBEParameterSpec.
+     */
+    private void testIterationEncryptedPrivateKeyInfo()
+        throws Exception
+    {
+        DERObjectIdentifier[] oids = { PKCSObjectIdentifiers.pbeWithSHAAnd3_KeyTripleDES_CBC,
+            PKCSObjectIdentifiers.pbeWithSHAAnd2_KeyTripleDES_CBC };
+
+        for (int i = 0; i != oids.length; i++)
+        {
+            ASN1EncodableVector v = new ASN1EncodableVector();
+            v.add(new AlgorithmIdentifier(oids[i], ASN1Object.fromByteArray(pbeParams(BigInteger.valueOf(OVER_MAX)))));
+            v.add(new DEROctetString(new byte[24]));
+            byte[] encoding = new DERSequence(v).getEncoded();
+
+            try
+            {
+                EncryptedPrivateKeyInfo epki = new EncryptedPrivateKeyInfo(encoding);
+                epki.getKeySpec(pbeKey("PBEWithSHAAnd3-KeyTripleDES-CBC"), "BC");
+                fail(oids[i] + ": key spec returned");
+            }
+            catch (Exception e)
+            {
+                if (!hasIterationCountCause(e))
+                {
+                    fail(oids[i] + ": " + e);
+                }
+            }
+        }
+    }
+
+    private void testIterationWithinBound()
+        throws Exception
+    {
+        SecretKey key = pbeKey("PBEWithSHAAnd3-KeyTripleDES-CBC");
+        byte[] data = "hello world!".getBytes("US-ASCII");
+
+        int[] counts = { 0, 1, TEST_MAX };
+        for (int i = 0; i != counts.length; i++)
+        {
+            PBEParameterSpec spec = new PBEParameterSpec(SALT, counts[i]);
+
+            Cipher cipher = Cipher.getInstance("PBEWithSHAAnd3-KeyTripleDES-CBC", "BC");
+            cipher.init(Cipher.ENCRYPT_MODE, key, spec);
+            byte[] ct = cipher.doFinal(data);
+
+            cipher.init(Cipher.DECRYPT_MODE, key, spec);
+            if (!Arrays.areEqual(data, cipher.doFinal(ct)))
+            {
+                fail("count " + counts[i]);
+            }
+
+            Mac mac = Mac.getInstance("PBEWithHMacSHA1", "BC");
+            mac.init(pbeKey("PBEWithHMacSHA1"), spec);
+            mac.doFinal(data);
+
+            if (counts[i] > 0)      // PBEKeySpec itself refuses a zero count
+            {
+                SecretKeyFactory.getInstance("PBEWithSHAAnd3-KeyTripleDES-CBC", "BC")
+                    .generateSecret(new PBEKeySpec("password".toCharArray(), SALT, counts[i], 192));
+            }
+        }
+    }
+
+    private void testIterationDefaultBound()
+        throws Exception
+    {
+        AlgorithmParameters params = AlgorithmParameters.getInstance("PKCS12PBE", "BC");
+        params.init(pbeParams(BigInteger.valueOf(10000000)));
+
+        params = AlgorithmParameters.getInstance("PKCS12PBE", "BC");
+        try
+        {
+            params.init(pbeParams(BigInteger.valueOf(10000001)));
+            fail("PKCS12PBE: default bound not applied");
+        }
+        catch (IOException e)
+        {
+            if (!"iteration count (10000001) greater than 10000000".equals(e.getMessage()))
+            {
+                fail("PKCS12PBE: " + e.getMessage());
+            }
+        }
+
+        Cipher cipher = Cipher.getInstance("PBEWithSHAAnd3-KeyTripleDES-CBC", "BC");
+        try
+        {
+            cipher.init(Cipher.DECRYPT_MODE, pbeKey("PBEWithSHAAnd3-KeyTripleDES-CBC"), new PBEParameterSpec(SALT, Integer.MAX_VALUE));
+            fail("default bound not applied");
+        }
+        catch (InvalidAlgorithmParameterException e)
+        {
+            if (!"iteration count (2147483647) greater than 10000000".equals(e.getMessage()))
+            {
+                fail("default bound: " + e.getMessage());
+            }
+        }
+    }
+
+    private static SecretKey pbeKey(String algorithm)
+        throws Exception
+    {
+        return SecretKeyFactory.getInstance(algorithm, "BC").generateSecret(new PBEKeySpec("password".toCharArray()));
+    }
+
+    // PKCS12PBEParams and PBEParameter share the SEQUENCE { OCTET STRING, INTEGER } shape
+    private static byte[] pbeParams(BigInteger count)
+        throws Exception
+    {
+        ASN1EncodableVector v = new ASN1EncodableVector();
+        v.add(new DEROctetString(SALT));
+        v.add(new DERInteger(count));
+        return new DERSequence(v).getEncoded();
+    }
+
+    private static boolean isIterationCountMessage(String message)
+    {
+        return message != null && message.indexOf("iteration count") >= 0;
+    }
+
+    private static boolean hasIterationCountCause(Throwable t)
+    {
+        for (; t != null; t = t.getCause())
+        {
+            if (isIterationCountMessage(t.getMessage()))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void performTest()
         throws Exception
     {
         testPemPbes2IterationCountBound();
+        testPBEIterationCount();
 
         byte[] input = Hex.decode("1234567890abcdefabcdef1234567890fedbca098765");
 

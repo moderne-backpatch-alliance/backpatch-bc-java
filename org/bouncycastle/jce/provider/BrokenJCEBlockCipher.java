@@ -231,6 +231,7 @@ public class BrokenJCEBlockCipher
         //
         if (key instanceof JCEPBEKey)
         {
+            PBE.Util.checkIterationCount(params);
             param = BrokenPBE.Util.makePBEParameters((JCEPBEKey)key, params, pbeType, pbeHash,
                         cipher.getUnderlyingCipher().getAlgorithmName(), pbeKeySize, pbeIvSize);
 

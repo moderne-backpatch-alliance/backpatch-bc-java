@@ -364,6 +364,8 @@ public interface BrokenPBE
             }
     
             PBEParameterSpec        pbeParam = (PBEParameterSpec)spec;
+            PBE.Util.validateIterationCount(pbeParam.getIterationCount());
+
             PBEParametersGenerator  generator = makePBEGenerator(type, hash);
             byte[]                  key = pbeKey.getEncoded();
             CipherParameters        param;
@@ -421,6 +423,8 @@ public interface BrokenPBE
             }
     
             PBEParameterSpec        pbeParam = (PBEParameterSpec)spec;
+            PBE.Util.validateIterationCount(pbeParam.getIterationCount());
+
             PBEParametersGenerator  generator = makePBEGenerator(type, hash);
             byte[]                  key = pbeKey.getEncoded();
             CipherParameters        param;

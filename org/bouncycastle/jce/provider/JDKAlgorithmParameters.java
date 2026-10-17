@@ -34,6 +34,7 @@ import javax.crypto.spec.PBEParameterSpec;
 import javax.crypto.spec.PSource;
 import javax.crypto.spec.RC2ParameterSpec;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.security.AlgorithmParametersSpi;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.DSAParameterSpec;
@@ -485,7 +486,31 @@ public abstract class JDKAlgorithmParameters
             byte[] params) 
             throws IOException
         {
-            this.params = PKCS12PBEParams.getInstance(ASN1Object.fromByteArray(params));
+            PKCS12PBEParams pbeParams = PKCS12PBEParams.getInstance(ASN1Object.fromByteArray(params));
+
+            checkIterationCount(pbeParams.getIterations());
+
+            this.params = pbeParams;
+        }
+
+        /**
+         * The iteration count comes from an untrusted encoding (the parameters of a PBES1 or PKCS#12 PBE
+         * AlgorithmIdentifier) and drives the derivation before anything can be verified, so it is bounded as
+         * PBEPBKDF2 bounds its own, and a negative or beyond-int value is rejected rather than narrowed.
+         */
+        private static void checkIterationCount(BigInteger iterationCount)
+            throws IOException
+        {
+            if (iterationCount.signum() < 0 || iterationCount.bitLength() > 31)
+            {
+                throw new IOException("invalid iteration count (" + iterationCount + ")");
+            }
+
+            int maxIT = PBE.Util.getMaxIterationCount();
+            if (iterationCount.intValue() > maxIT)
+            {
+                throw new IOException("iteration count (" + iterationCount + ") greater than " + maxIT);
+            }
         }
 
         protected void engineInit(
