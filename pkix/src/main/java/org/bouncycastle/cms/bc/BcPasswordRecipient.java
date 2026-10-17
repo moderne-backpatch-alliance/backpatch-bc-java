@@ -19,6 +19,7 @@ import org.bouncycastle.crypto.params.ParametersWithIV;
 public abstract class BcPasswordRecipient
     implements PasswordRecipient
 {
+    private int minimumTagSizeInBits = 0;
     private final char[] password;
 
     private int schemeID = PasswordRecipient.PKCS5_SCHEME2_UTF8;
@@ -36,9 +37,21 @@ public abstract class BcPasswordRecipient
         return this;
     }
 
+    /**
+     * Set the minimum AEAD authentication tag size (in bits) this recipient will accept.
+     *
+     * @param tagSizeInBits the minimum acceptable AEAD tag size, in bits.
+     */
+    protected final void setMinimumTagSizeInBits(int tagSizeInBits)
+    {
+        this.minimumTagSizeInBits = tagSizeInBits;
+    }
+
     protected KeyParameter extractSecretKey(AlgorithmIdentifier keyEncryptionAlgorithm, AlgorithmIdentifier contentEncryptionAlgorithm, byte[] derivedKey, byte[] encryptedContentEncryptionKey)
         throws CMSException
     {
+        CMSUtils.checkTagSize(contentEncryptionAlgorithm, minimumTagSizeInBits);
+
         Wrapper keyEncryptionCipher = EnvelopedDataHelper.createRFC3211Wrapper(keyEncryptionAlgorithm.getAlgorithm());
 
         keyEncryptionCipher.init(false, new ParametersWithIV(new KeyParameter(derivedKey), ASN1OctetString.getInstance(keyEncryptionAlgorithm.getParameters()).getOctets()));
