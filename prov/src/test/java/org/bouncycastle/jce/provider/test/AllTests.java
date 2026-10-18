@@ -22,6 +22,7 @@ public class AllTests
 
         suite.addTestSuite(SimpleTestTest.class);
         suite.addTestSuite(CheckNameConstraintsTest.class);
+        suite.addTestSuite(MultiValuedRDNEmailTest.class);
 
         return new BCTestSetup(suite);
     }
