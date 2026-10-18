@@ -22,6 +22,7 @@ public class AllTests
         TestSuite suite = new TestSuite("JCE Tests");
 
         suite.addTestSuite(SimpleTestTest.class);
+        suite.addTestSuite(MultiValuedRDNEmailTest.class);
 
         return new BCTestSetup(suite);
     }
