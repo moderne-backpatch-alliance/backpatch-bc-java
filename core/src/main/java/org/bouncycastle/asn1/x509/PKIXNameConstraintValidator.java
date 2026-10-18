@@ -18,6 +18,7 @@ import org.bouncycastle.asn1.x500.style.IETFUtils;
 import org.bouncycastle.asn1.x500.style.RFC4519Style;
 import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.Integers;
+import org.bouncycastle.util.Properties;
 import org.bouncycastle.util.Strings;
 import org.bouncycastle.util.encoders.Hex;
 
@@ -316,22 +317,18 @@ public class PKIXNameConstraintValidator
             return false;
         }
 
-        int start = 0;
-        RDN subtreeRdnStart = RDN.getInstance(subtree.getObjectAt(0));
-        for (int j = 0; j < dns.size(); j++)
+        if (Properties.isOverrideSet(Properties.X509_SGP22_NAME_CONSTRAINTS))
         {
-            start = j;
-            RDN dnsRdn = RDN.getInstance(dns.getObjectAt(j));
-            if (IETFUtils.rDNAreEqual(subtreeRdnStart, dnsRdn))
-            {
-                break;
-            }
+            return withinDNSubtreeSGP22(dns, subtree);
         }
 
-        if (subtree.size() > dns.size() - start)
-        {
-            return false;
-        }
+        // RFC 5280 4.2.1.10 / 7.1: a directoryName constraint is satisfied only when the constraint's
+        // RDNSequence is an initial prefix of the subject's. Match from index 0 only - searching for
+        // the constraint's first RDN at an arbitrary offset let an attacker prepend RDNs ahead of the
+        // permitted sequence (e.g. a subject C=FR,O=Attacker,C=US,O=TrustedOrg,CN=x being judged
+        // inside permitted subtree C=US,O=TrustedOrg) and still pass the permittedSubtrees check. The
+        // relaxed anywhere-match needed for GSMA SGP.22 stays behind Properties.X509_SGP22_NAME_CONSTRAINTS.
+        int start = 0;
 
         for (int j = 0; j < subtree.size(); j++)
         {
@@ -348,19 +345,13 @@ public class PKIXNameConstraintValidator
                 //   NOTE: this is checking the attributes in the same order, which might be not necessary, if this is a problem also IETFUtils.rDNAreEqual mus tbe changed.
                 // use new RFC 5280 comparison, NOTE: this is now different from with RFC 3280, where only binary comparison is used
                 // obey RFC 5280 7.1
-                // special treatment of serialNumber for GSMA SGP.22 RSP specification
+                // NOTE: the GSMA SGP.22 serialNumber startsWith concession is gated behind
+                // Properties.X509_SGP22_NAME_CONSTRAINTS (see withinDNSubtreeSGP22); this path stays strict.
                 if (!subtreeRdn.getFirst().getType().equals(dnsRdn.getFirst().getType()))
                 {
                     return false;
                 }
-                if (subtreeRdn.size() == 1 && subtreeRdn.getFirst().getType().equals(RFC4519Style.serialNumber))
-                {
-                    if (!dnsRdn.getFirst().getValue().toString().startsWith(subtreeRdn.getFirst().getValue().toString()))
-                    {
-                        return false;
-                    }
-                }
-                else if (!IETFUtils.rDNAreEqual(subtreeRdn, dnsRdn))
+                if (!IETFUtils.rDNAreEqual(subtreeRdn, dnsRdn))
                 {
                     return false;
                 }
@@ -372,6 +363,61 @@ public class PKIXNameConstraintValidator
         }
 
         return true;
+    }
+
+    /**
+     * Relaxed directoryName subtree matching for GSMA SGP.22 v2.5 (sections 4.5.2.1.0.2 and
+     * 4.5.2.1.0.3), enabled only when {@link Properties#X509_SGP22_NAME_CONSTRAINTS} is set. Each
+     * RDN of the permitted subtree must be matched by some RDN of the subject DN regardless of
+     * position; additional subject attributes are permitted, and a serialNumber RDN is matched with
+     * a startsWith comparison wherever it occurs. This deliberately departs from the contiguous
+     * prefix matching of RFC 5280 7.1 implemented by {@link #withinDNSubtree(ASN1Sequence, ASN1Sequence)}.
+     */
+    private static boolean withinDNSubtreeSGP22(ASN1Sequence dns, ASN1Sequence subtree)
+    {
+        for (int i = 0; i < subtree.size(); i++)
+        {
+            RDN subtreeRdn = RDN.getInstance(subtree.getObjectAt(i));
+
+            boolean matched = false;
+            for (int j = 0; j < dns.size(); j++)
+            {
+                RDN dnsRdn = RDN.getInstance(dns.getObjectAt(j));
+                if (rdnMatchesSGP22(subtreeRdn, dnsRdn))
+                {
+                    matched = true;
+                    break;
+                }
+            }
+
+            if (!matched)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static boolean rdnMatchesSGP22(RDN subtreeRdn, RDN dnsRdn)
+    {
+        if (subtreeRdn.size() != dnsRdn.size())
+        {
+            return false;
+        }
+
+        if (!subtreeRdn.getFirst().getType().equals(dnsRdn.getFirst().getType()))
+        {
+            return false;
+        }
+
+        // special treatment of serialNumber for GSMA SGP.22 RSP specification
+        if (subtreeRdn.size() == 1 && subtreeRdn.getFirst().getType().equals(RFC4519Style.serialNumber))
+        {
+            return dnsRdn.getFirst().getValue().toString().startsWith(subtreeRdn.getFirst().getValue().toString());
+        }
+
+        return IETFUtils.rDNAreEqual(subtreeRdn, dnsRdn);
     }
 
     private void checkPermittedDN(Set permitted, ASN1Sequence dns)
@@ -991,15 +1037,25 @@ public class PKIXNameConstraintValidator
      */
     private boolean isIPConstrained(byte ip[], byte[] constraint)
     {
-        int ipLength = ip.length;
+        // Normalise IPv4-mapped IPv6 (::ffff:0:0/96 per RFC 4291 sec. 2.5.5.2)
+        // to IPv4 on BOTH sides before the length-equality pre-filter, so a
+        // SAN that encodes the same IPv4 address using the 16-byte IPv4-
+        // mapped IPv6 form doesn't escape an 8-byte IPv4 constraint via
+        // the address-family-length mismatch. RFC 4291 makes the two forms
+        // equivalent for host identification, so the normalisation is also
+        // semantics-preserving in the permitted-subtree direction.
+        byte[] normIp = normalizeIPv4MappedIPv6Address(ip);
+        byte[] normConstraint = normalizeIPv4MappedIPv6Constraint(constraint);
 
-        if (ipLength != (constraint.length / 2))
+        int ipLength = normIp.length;
+
+        if (ipLength != (normConstraint.length / 2))
         {
             return false;
         }
 
         byte[] subnetMask = new byte[ipLength];
-        System.arraycopy(constraint, ipLength, subnetMask, 0, ipLength);
+        System.arraycopy(normConstraint, ipLength, subnetMask, 0, ipLength);
 
         byte[] permittedSubnetAddress = new byte[ipLength];
 
@@ -1008,11 +1064,82 @@ public class PKIXNameConstraintValidator
         // the resulting IP address by applying the subnet mask
         for (int i = 0; i < ipLength; i++)
         {
-            permittedSubnetAddress[i] = (byte)(constraint[i] & subnetMask[i]);
-            ipSubnetAddress[i] = (byte)(ip[i] & subnetMask[i]);
+            permittedSubnetAddress[i] = (byte)(normConstraint[i] & subnetMask[i]);
+            ipSubnetAddress[i] = (byte)(normIp[i] & subnetMask[i]);
         }
 
         return Arrays.areEqual(permittedSubnetAddress, ipSubnetAddress);
+    }
+
+    /**
+     * If {@code ip} is a 16-byte IPv4-mapped IPv6 address (RFC 4291
+     * sec. 2.5.5.2: leading 80 bits zero, next 16 bits all-ones, trailing
+     * 32 bits the IPv4 address), return the 4-byte IPv4 form; otherwise
+     * return {@code ip} unchanged.
+     */
+    private static byte[] normalizeIPv4MappedIPv6Address(byte[] ip)
+    {
+        if (!isIPv4MappedIPv6Address(ip))
+        {
+            return ip;
+        }
+        byte[] ipv4 = new byte[4];
+        System.arraycopy(ip, 12, ipv4, 0, 4);
+        return ipv4;
+    }
+
+    /**
+     * A Name-Constraints iPAddress constraint is encoded as
+     * {@code IP || subnet-mask}. If both halves are in IPv4-mapped IPv6
+     * form (the IP half matches the {@code ::ffff:0:0/96} prefix and the
+     * mask half is all-ones across the first 96 bits), reduce to the
+     * 8-byte (4-byte IPv4 || 4-byte mask) form. Otherwise return the
+     * constraint unchanged. The mask check matters: a mask narrower than
+     * /96 means the constraint is really an IPv6 range that happens to
+     * start at an IPv4-mapped address, and collapsing it to IPv4 would
+     * change which addresses match.
+     */
+    private static byte[] normalizeIPv4MappedIPv6Constraint(byte[] constraint)
+    {
+        if (constraint.length != 32)
+        {
+            return constraint;
+        }
+        byte[] ipHalf = new byte[16];
+        byte[] maskHalf = new byte[16];
+        System.arraycopy(constraint, 0, ipHalf, 0, 16);
+        System.arraycopy(constraint, 16, maskHalf, 0, 16);
+        if (!isIPv4MappedIPv6Address(ipHalf))
+        {
+            return constraint;
+        }
+        for (int i = 0; i < 12; i++)
+        {
+            if (maskHalf[i] != (byte)0xff)
+            {
+                return constraint;
+            }
+        }
+        byte[] result = new byte[8];
+        System.arraycopy(ipHalf, 12, result, 0, 4);
+        System.arraycopy(maskHalf, 12, result, 4, 4);
+        return result;
+    }
+
+    private static boolean isIPv4MappedIPv6Address(byte[] ip)
+    {
+        if (ip == null || ip.length != 16)
+        {
+            return false;
+        }
+        for (int i = 0; i < 10; i++)
+        {
+            if (ip[i] != 0)
+            {
+                return false;
+            }
+        }
+        return ip[10] == (byte)0xff && ip[11] == (byte)0xff;
     }
 
     private boolean otherNameIsConstrained(OtherName name, OtherName constraint)
@@ -1840,26 +1967,47 @@ public class PKIXNameConstraintValidator
 
     private static String extractHostFromURL(String url)
     {
-        // see RFC 1738
-        // remove ':' after protocol, e.g. https:
-        String sub = url.substring(url.indexOf(':') + 1);
-        // extract host from Common Internet Scheme Syntax, e.g. https://
-        if (sub.indexOf("//") != -1)
+        // RFC 3986 §3.2 authority structure:
+        //   authority = [ userinfo "@" ] host [ ":" port ]
+        // The strip order is: scheme → "//" → path/query/fragment terminator → userinfo (last '@') → host
+        // with optional bracketed IPv6 / trailing ":port".
+        String sub = url;
+        int schemeEnd = sub.indexOf(':');
+        if (schemeEnd >= 0)
         {
-            sub = sub.substring(sub.indexOf("//") + 2);
+            sub = sub.substring(schemeEnd + 1);
         }
-        // first remove port, e.g. https://test.com:21
-        if (sub.lastIndexOf(':') != -1)
+        if (sub.startsWith("//"))
         {
-            sub = sub.substring(0, sub.lastIndexOf(':'));
+            sub = sub.substring(2);
         }
-        // remove user and password, e.g. https://john:password@test.com
-        sub = sub.substring(sub.indexOf(':') + 1);
-        sub = sub.substring(sub.indexOf('@') + 1);
-        // remove local parts, e.g. https://test.com/bla
-        if (sub.indexOf('/') != -1)
+        for (int i = 0; i < sub.length(); ++i)
         {
-            sub = sub.substring(0, sub.indexOf('/'));
+            char c = sub.charAt(i);
+            if (c == '/' || c == '?' || c == '#')
+            {
+                sub = sub.substring(0, i);
+                break;
+            }
+        }
+        int atPos = sub.lastIndexOf('@');
+        if (atPos >= 0)
+        {
+            sub = sub.substring(atPos + 1);
+        }
+        if (sub.startsWith("["))
+        {
+            int closeBracket = sub.indexOf(']');
+            if (closeBracket > 0)
+            {
+                return sub.substring(1, closeBracket);
+            }
+            return sub.substring(1);
+        }
+        int portColon = sub.lastIndexOf(':');
+        if (portColon >= 0)
+        {
+            sub = sub.substring(0, portColon);
         }
         return sub;
     }
