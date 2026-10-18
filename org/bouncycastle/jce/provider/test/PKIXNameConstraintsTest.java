@@ -250,6 +250,8 @@ public class PKIXNameConstraintsTest
 
         testNameConstraintBypasses();
         testDNSTrailingDot();
+        testIPv4MappedIPv6();
+        testURIHostExtraction();
         testNameConstraintsAppliedToLeaf();
     }
 
@@ -420,6 +422,104 @@ public class PKIXNameConstraintsTest
         catch (PKIXNameConstraintValidatorException e)
         {
             // expected
+        }
+    }
+
+    // CVE-2026-8763: tests written for the backpatch (upstream b2769e8e7's IPv4-mapped IPv6 and URI host hunks have none)
+    private boolean isPermitted(GeneralName permitted, GeneralName subject)
+    {
+        PKIXNameConstraintValidator validator = new PKIXNameConstraintValidator();
+        validator.intersectPermittedSubtree(new DERSequence(new GeneralSubtree(permitted)));
+        try
+        {
+            validator.checkPermitted(subject);
+            return true;
+        }
+        catch (PKIXNameConstraintValidatorException e)
+        {
+            return false;
+        }
+    }
+
+    private void testIPv4MappedIPv6()
+        throws Exception
+    {
+        byte[] v4Net = new byte[]{ (byte)192, (byte)168, 1, 0, (byte)255, (byte)255, (byte)255, 0 };
+        byte[] mappedHost = new byte[]{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, (byte)0xff, (byte)0xff, (byte)192, (byte)168, 1, 5 };
+        byte[] v4Host = new byte[]{ (byte)192, (byte)168, 1, 5 };
+        byte[] mappedNet = new byte[]{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, (byte)0xff, (byte)0xff, (byte)192, (byte)168, 1, 0,
+            (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff,
+            (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff, (byte)0xff, 0 };
+
+        PKIXNameConstraintValidator v4V = new PKIXNameConstraintValidator();
+        v4V.addExcludedSubtree(new GeneralSubtree(new GeneralName(GeneralName.iPAddress, new DEROctetString(v4Net))));
+        try
+        {
+            v4V.checkExcluded(new GeneralName(GeneralName.iPAddress, new DEROctetString(mappedHost)));
+            fail("IPv4-mapped IPv6 address must be caught by the excluded IPv4 subtree");
+        }
+        catch (PKIXNameConstraintValidatorException e)
+        {
+            // expected
+        }
+
+        PKIXNameConstraintValidator mappedV = new PKIXNameConstraintValidator();
+        mappedV.addExcludedSubtree(new GeneralSubtree(new GeneralName(GeneralName.iPAddress, new DEROctetString(mappedNet))));
+        try
+        {
+            mappedV.checkExcluded(new GeneralName(GeneralName.iPAddress, new DEROctetString(v4Host)));
+            fail("IPv4 address must be caught by the excluded IPv4-mapped IPv6 subtree");
+        }
+        catch (PKIXNameConstraintValidatorException e)
+        {
+            // expected
+        }
+
+        if (!isPermitted(new GeneralName(GeneralName.iPAddress, new DEROctetString(v4Net)),
+            new GeneralName(GeneralName.iPAddress, new DEROctetString(mappedHost))))
+        {
+            fail("IPv4-mapped IPv6 address inside a permitted IPv4 subtree must be permitted");
+        }
+        if (isPermitted(new GeneralName(GeneralName.iPAddress, new DEROctetString(v4Net)),
+            new GeneralName(GeneralName.iPAddress, new DEROctetString(
+                new byte[]{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, (byte)0xff, (byte)0xff, 10, 0, 0, 1 }))))
+        {
+            fail("IPv4-mapped IPv6 address outside a permitted IPv4 subtree must not be permitted");
+        }
+    }
+
+    private void testURIHostExtraction()
+        throws Exception
+    {
+        String[] excludedUris = {
+            "https://bank.com?q=1",
+            "https://bank.com#top",
+            "https://user@evil.example@bank.com/",
+        };
+        for (int i = 0; i != excludedUris.length; i++)
+        {
+            PKIXNameConstraintValidator uriV = new PKIXNameConstraintValidator();
+            uriV.addExcludedSubtree(new GeneralSubtree(new GeneralName(GeneralName.uniformResourceIdentifier, "bank.com")));
+            try
+            {
+                uriV.checkExcluded(new GeneralName(GeneralName.uniformResourceIdentifier, excludedUris[i]));
+                fail("URI " + excludedUris[i] + " must be caught by the excluded bank.com subtree");
+            }
+            catch (PKIXNameConstraintValidatorException e)
+            {
+                // expected
+            }
+        }
+
+        if (!isPermitted(new GeneralName(GeneralName.uniformResourceIdentifier, "bank.com"),
+            new GeneralName(GeneralName.uniformResourceIdentifier, "https://user:pw@bank.com:8443/a/b?c=d#e")))
+        {
+            fail("host with port, path, query and fragment must be permitted");
+        }
+        if (!isPermitted(new GeneralName(GeneralName.uniformResourceIdentifier, "2001:db8::1"),
+            new GeneralName(GeneralName.uniformResourceIdentifier, "https://[2001:db8::1]:8443/")))
+        {
+            fail("bracketed IPv6 host must be extracted without brackets and port");
         }
     }
 
