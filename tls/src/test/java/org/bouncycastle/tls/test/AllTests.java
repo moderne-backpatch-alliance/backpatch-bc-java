@@ -24,6 +24,7 @@ public class AllTests
         suite.addTestSuite(DTLSReassemblyLimitTest.class);
         suite.addTest(DTLSTestSuite.suite());
         suite.addTestSuite(PRFTest.class);
+        suite.addTestSuite(RSAPreMasterSecretDecryptionTest.class);
         suite.addTestSuite(TlsProtocolTest.class);
         suite.addTestSuite(TlsProtocolNonBlockingTest.class);
         suite.addTestSuite(TlsPSKProtocolTest.class);
