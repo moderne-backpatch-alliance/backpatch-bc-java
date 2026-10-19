@@ -12,7 +12,6 @@ import java.security.cert.X509Certificate;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLSocket;
@@ -84,8 +83,9 @@ public class EndpointIdentificationByAddressTest
             handshake(client);
             fail("server identified by the address the client connected to");
         }
-        catch (SSLException e)
+        catch (IOException e)
         {
+            // BCJSSE reports the failed check as a TlsFatalAlert, an IOException but not an SSLException
             assertTrue("handshake failed for another reason: " + e, causedByCertificateException(e));
         }
     }
