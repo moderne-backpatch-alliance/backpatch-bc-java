@@ -60,6 +60,6 @@ public class URLConnectionUtil
 
     protected SSLSocketFactory createSSLSocketFactory(SSLSocketFactory delegate, URL url)
     {
-        return new SNISocketFactory(delegate, url);
+        return new SetHostSocketFactory(delegate, url);
     }
 }
