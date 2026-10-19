@@ -23,6 +23,7 @@ public class AllTests
         suite.addTestSuite(ByteQueueInputStreamTest.class);
         suite.addTestSuite(DTLSProtocolTest.class);
         suite.addTestSuite(DTLSPSKProtocolTest.class);
+        suite.addTestSuite(DTLSReassemblyLimitTest.class);
         suite.addTestSuite(OCSPTest.class);
         suite.addTestSuite(PRFTest.class);
         suite.addTestSuite(Tls13PSKProtocolTest.class);
