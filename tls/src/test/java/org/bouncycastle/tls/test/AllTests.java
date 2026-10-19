@@ -21,6 +21,7 @@ public class AllTests
 
         suite.addTestSuite(BasicTlsTest.class);
         suite.addTestSuite(DTLSProtocolTest.class);
+        suite.addTestSuite(DTLSReassemblyLimitTest.class);
         suite.addTest(DTLSTestSuite.suite());
         suite.addTestSuite(PRFTest.class);
         suite.addTestSuite(TlsProtocolTest.class);

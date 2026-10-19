@@ -5588,4 +5588,9 @@ public class TlsUtils
             }
         }
     }
+
+    static int getMaxHandshakeMessageSize(TlsPeer tlsPeer)
+    {
+        return Math.max(1024, tlsPeer.getMaxHandshakeMessageSize());
+    }
 }
