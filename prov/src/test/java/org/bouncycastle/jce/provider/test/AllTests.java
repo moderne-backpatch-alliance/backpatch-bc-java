@@ -23,6 +23,7 @@ public class AllTests
         suite.addTestSuite(SimpleTestTest.class);
         suite.addTestSuite(CheckNameConstraintsTest.class);
         suite.addTestSuite(MultiValuedRDNEmailTest.class);
+        suite.addTestSuite(BKSLegacyStoreTest.class);
 
         return new BCTestSetup(suite);
     }
