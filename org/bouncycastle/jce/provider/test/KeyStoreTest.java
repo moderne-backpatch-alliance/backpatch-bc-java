@@ -6,6 +6,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.security.Key;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -34,6 +35,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.util.Arrays;
+import org.bouncycastle.util.encoders.Base64;
 import org.bouncycastle.util.encoders.Hex;
 import org.bouncycastle.util.test.SimpleTest;
 import org.bouncycastle.x509.X509V3CertificateGenerator;
@@ -47,6 +49,29 @@ public class KeyStoreTest
     extends SimpleTest
 {
     static char[]   passwd = { 'h', 'e', 'l', 'l', 'o', ' ', 'w', 'o', 'r', 'l', 'd' };
+
+    byte[] v1BKS = Base64.decode(
+          "AAAAAQAAABTqZbNMyPjsFazhFplWWDMBLPRdRAAABcYEAAdhbmRyb2lkAAAB"
+        + "NOifkPwAAAAAAAAAPAAAABTZOLhcyhB0gKyfoDvyQbpzftB7GgAABEYPrZP8"
+        + "q20AJLETjDv0K9C5rIl1erpyvpv20bqcbghK6wD0b8OP5/XzOz/8knhxmqJZ"
+        + "3yRJMw==");
+    byte[] v2BKS = Base64.decode(
+          "AAAAAgAAABSkmTXz4VIznO1SSUqsIHdxWcxsuQAABFMEAAdhbmRyb2lkAAABN" +
+          "OifkPwAAAAAAAAAPAAAABTZOLhcyhB0gKyfoDvyQbpzftB7GgAABEYPrZP8q2" +
+          "0AJLETjDv0K9C5rIl1erpyvpv20bqcbghK6wBO59KOGPvSrmJpd32P6ZAh9qLZJw==");
+
+    byte[] v1UBER = Base64.decode(
+          "AAAAAQAAABRP0F6p2p3FyQKqyJiJt3NbvdybiwAAB2znqrO779YIW5gMtbt+"
+        + "NUs96VPPcfZiKJPg7RKH7Yu3CQB0/g9nYsvgFB0fQ05mHcW3KjntN2/31A6G"
+        + "i00n4ZnUTjJL16puZnQrloeGXxFy58tjwkFuwJ7V7ELYgiZlls0beHSdDGQW"
+        + "iyYECwWs1la/");
+    byte[] v2UBER = Base64.decode(
+          "AAAAAgAAABQ/D9k3376OG/REg4Ams9Up332tLQAABujoVcsRcKWwhlo4mMg5"
+        + "lF2vJfK+okIYecJGWCvdykF5r8kDn68llt52IDXDkpRXVXcNJ0/aD7sa7iZ0"
+        + "SL0TAwcfp/9v4j/w8slj/qgO0i/76+zROrP0NGFIa5k/iOg5Z0Tj77muMaJf"
+        + "n3vLlIHa4IsX");
+
+    char[] oldStorePass = "fredfred".toCharArray();
 
     public void ecStoreTest(
         String  storeName)
@@ -308,10 +333,99 @@ public class KeyStoreTest
         keyStoreTest("BKS");
         keyStoreTest("UBER");
         ecStoreTest("BKS");
+        oldStoreTest();
+        v1RejectedByDefaultTest();
         checkOversizedEntryRejected();
         checkLargeEntryStreamed();
         checkStoreMacKeyStrength();
         checkVersion1StoreMigrates();
+        checkTamperedVersion1StoreRefused();
+    }
+
+    // CVE-2026-59651: upstream faf5daa6e's switch; 1.46 reads it as a system property only (no
+    // util.Properties, so no thread override), so the tests set and restore the system property.
+
+    private static final String BKS_ENABLE_V1 = "org.bouncycastle.bks.enable_v1";
+
+    // sets the switch to value, or clears it for null; returns the previous value
+    private static String setEnableV1(String value)
+    {
+        String previous = System.getProperty(BKS_ENABLE_V1);
+
+        if (value == null)
+        {
+            System.clearProperty(BKS_ENABLE_V1);
+        }
+        else
+        {
+            System.setProperty(BKS_ENABLE_V1, value);
+        }
+
+        return previous;
+    }
+
+    private void v1RejectedByDefaultTest()
+        throws Exception
+    {
+        String previous = setEnableV1(null);
+        try
+        {
+            KeyStore ks = KeyStore.getInstance("BKS", "BC");
+
+            ks.load(new ByteArrayInputStream(v1BKS), oldStorePass);
+
+            fail("default BKS loaded a version 1 store without " + BKS_ENABLE_V1);
+        }
+        catch (IOException e)
+        {
+            if (!e.getMessage().startsWith("BKS version 1 keystore not supported"))
+            {
+                fail("unexpected exception: " + e.getMessage());
+            }
+        }
+        finally
+        {
+            setEnableV1(previous);
+        }
+    }
+
+    // upstream's BKS and UBER parts (1.46 has no BKS-V1 type); v1BKS needs the switch, as upstream's harness sets it
+    private void oldStoreTest()
+        throws Exception
+    {
+        String previous = setEnableV1("true");
+        try
+        {
+            checkStore(KeyStore.getInstance("BKS", "BC"), v1BKS);
+        }
+        finally
+        {
+            setEnableV1(previous);
+        }
+        checkStore(KeyStore.getInstance("BKS", "BC"), v2BKS);
+        checkStore(KeyStore.getInstance("UBER", "BC"), v1UBER);
+        checkStore(KeyStore.getInstance("UBER", "BC"), v2UBER);
+    }
+
+    private void checkStore(KeyStore ks, byte[] data)
+        throws Exception
+    {
+        ks.load(new ByteArrayInputStream(data), oldStorePass);
+
+        if (!ks.containsAlias("android"))
+        {
+            fail("cannot find alias");
+        }
+
+        Key key = ks.getKey("android", oldStorePass);
+        if (key == null)
+        {
+            fail("cannot find key");
+        }
+
+        ByteArrayOutputStream bOut = new ByteArrayOutputStream();
+
+        ks.store(bOut, oldStorePass);
     }
 
     // CVE-2018-5382: BKS version 0/1 stores key their HMAC-SHA1 integrity MAC with getMacSize() = 20 bits
@@ -431,40 +545,119 @@ public class KeyStoreTest
         }
     }
 
-    // a store as unpatched 1.46 writes it (version 1, 2-byte MAC key) loads, and store() rewrites it as version 2
+    // migration: with the switch on, a version 1 store (as unpatched 1.46 writes it, and upstream's v1BKS) loads
+    // and store() rewrites it as version 2 with a 160-bit MAC key; with the switch off again it loads
     private void checkVersion1StoreMigrates()
         throws Exception
     {
-        byte[] v1Store = rewriteStore(createSecretEntryStore(passwd), 1, passwd, 20);
-        KeyStore ks = KeyStore.getInstance("BKS", "BC");
+        checkVersion1StoreMigrates(rewriteStore(createSecretEntryStore(passwd), 1, passwd, 20), passwd, "trust");
+        checkVersion1StoreMigrates(v1BKS, oldStorePass, "android");
+    }
 
-        ks.load(new ByteArrayInputStream(v1Store), passwd);
-
-        ByteArrayOutputStream bOut = new ByteArrayOutputStream();
-
-        ks.store(bOut, passwd);
-
-        byte[] migrated = bOut.toByteArray();
-
-        if (readStoreVersion(migrated) != 2)
+    private void checkVersion1StoreMigrates(byte[] v1Store, char[] password, String alias)
+        throws Exception
+    {
+        String previous = setEnableV1("true");
+        try
         {
-            fail("re-saved version 1 BKS store written as version " + readStoreVersion(migrated) + ", not 2");
+            KeyStore ks = KeyStore.getInstance("BKS", "BC");
+
+            ks.load(new ByteArrayInputStream(v1Store), password);
+
+            ByteArrayOutputStream bOut = new ByteArrayOutputStream();
+
+            ks.store(bOut, password);
+
+            byte[] migrated = bOut.toByteArray();
+
+            if (readStoreVersion(migrated) != 2)
+            {
+                fail("re-saved version 1 BKS store written as version " + readStoreVersion(migrated) + ", not 2");
+            }
+            if (!Arrays.areEqual(readStoreMac(migrated), calculateStoreMac(migrated, password, 160)))
+            {
+                fail("re-saved version 1 BKS store MAC is not keyed with 160 bits");
+            }
+
+            setEnableV1(null);
+
+            ks = KeyStore.getInstance("BKS", "BC");
+            ks.load(new ByteArrayInputStream(migrated), password);
+
+            if (ks.size() != 1 || !ks.isKeyEntry(alias))
+            {
+                fail("re-saved version 1 BKS store lost its entry");
+            }
         }
-        if (!Arrays.areEqual(readStoreMac(migrated), calculateStoreMac(migrated, passwd, 160)))
+        finally
         {
-            fail("re-saved version 1 BKS store MAC is not keyed with 160 bits");
-        }
-
-        ks = KeyStore.getInstance("BKS", "BC");
-        ks.load(new ByteArrayInputStream(migrated), passwd);
-
-        if (ks.size() != 1 || !ks.isKeyEntry("trust"))
-        {
-            fail("re-saved version 1 BKS store lost its entry");
+            setEnableV1(previous);
         }
     }
 
-    // CVE-2026-12185: upstream 7bbd7fe5f's two tests, with store version 1 (the version 1.46 writes) instead of 2
+    // a version 1 store with an altered entry and its MAC recomputed with the 2-byte key: accepted
+    // before, refused by default now, whether or not a password is given
+    private void checkTamperedVersion1StoreRefused()
+        throws Exception
+    {
+        byte[] v1Store = rewriteStore(createSecretEntryStore(passwd), 1, passwd, 20);
+        byte[] trust = new byte[] { 0, 5, 't', 'r', 'u', 's', 't' };
+        int at = -1;
+
+        for (int i = 0; i + trust.length <= v1Store.length; i++)
+        {
+            byte[] window = new byte[trust.length];
+
+            System.arraycopy(v1Store, i, window, 0, trust.length);
+            if (Arrays.areEqual(window, trust))
+            {
+                if (at >= 0)
+                {
+                    fail("alias found twice in test store");
+                }
+                at = i;
+            }
+        }
+        if (at < 0)
+        {
+            fail("alias not found in test store");
+        }
+
+        byte[] altered = Arrays.clone(v1Store);
+
+        System.arraycopy(new byte[] { 'r', 'o', 'g', 'u', 'e' }, 0, altered, at + 2, 5);
+
+        byte[] tampered = rewriteStore(altered, 1, passwd, 20);
+        char[][] passwords = { passwd, null };
+
+        String previous = setEnableV1(null);
+        try
+        {
+            for (int p = 0; p != passwords.length; p++)
+            {
+                KeyStore ks = KeyStore.getInstance("BKS", "BC");
+
+                try
+                {
+                    ks.load(new ByteArrayInputStream(tampered), passwords[p]);
+                    fail("tampered version 1 BKS store accepted" + (ks.containsAlias("rogue") ? ", with its altered entry" : ""));
+                }
+                catch (IOException e)
+                {
+                    if (!e.getMessage().startsWith("BKS version 1 keystore not supported"))
+                    {
+                        fail("unexpected exception: " + e.getMessage());
+                    }
+                }
+            }
+        }
+        finally
+        {
+            setEnableV1(previous);
+        }
+    }
+
+    // CVE-2026-12185: upstream 7bbd7fe5f's two tests
 
     /*
      * An entry whose declared length genuinely exceeds the read buffer (and whose bytes are
@@ -479,7 +672,7 @@ public class KeyStoreTest
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream dos = new DataOutputStream(baos);
-        dos.writeInt(1);                            // store version
+        dos.writeInt(2);                            // store version
         dos.writeInt(20);                           // salt length
         dos.write(new byte[20]);                    // salt
         dos.writeInt(1024);                         // iteration count
@@ -519,7 +712,7 @@ public class KeyStoreTest
         // BKS: a KEY entry with an Integer.MAX_VALUE certificate chain length.
         ByteArrayOutputStream chainPoison = new ByteArrayOutputStream();
         DataOutputStream c = new DataOutputStream(chainPoison);
-        c.writeInt(1);                              // store version
+        c.writeInt(2);                              // store version
         c.writeInt(20);                             // salt length
         c.write(new byte[20]);                      // salt
         c.writeInt(1024);                           // iteration count
@@ -531,7 +724,7 @@ public class KeyStoreTest
         // BKS: a SECRET entry (chain length 0) with an Integer.MAX_VALUE blob length.
         ByteArrayOutputStream blobPoison = new ByteArrayOutputStream();
         DataOutputStream b = new DataOutputStream(blobPoison);
-        b.writeInt(1);
+        b.writeInt(2);
         b.writeInt(20);
         b.write(new byte[20]);
         b.writeInt(1024);
@@ -544,7 +737,7 @@ public class KeyStoreTest
         // BKS / UBER: an Integer.MAX_VALUE store salt length, read before any cipher is set up.
         ByteArrayOutputStream saltPoison = new ByteArrayOutputStream();
         DataOutputStream s = new DataOutputStream(saltPoison);
-        s.writeInt(1);
+        s.writeInt(2);
         s.writeInt(Integer.MAX_VALUE);              // poison salt length
 
         for (int p = 0; p != passwords.length; p++)

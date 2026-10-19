@@ -7,6 +7,8 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.security.AccessControlException;
+import java.security.AccessController;
 import java.security.Key;
 import java.security.KeyFactory;
 import java.security.KeyStoreException;
@@ -14,6 +16,7 @@ import java.security.KeyStoreSpi;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PrivateKey;
+import java.security.PrivilegedAction;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.UnrecoverableKeyException;
@@ -57,6 +60,8 @@ public class JDKKeyStore
     implements BCKeyStore
 {
     private static final int    STORE_VERSION = 2;
+
+    private static final String BKS_ENABLE_V1 = "org.bouncycastle.bks.enable_v1";
 
     private static final int    STORE_SALT_SIZE = 20;
     private static final String STORE_CIPHER = "PBEWithSHAAndTwofish-CBC";
@@ -844,6 +849,14 @@ public class JDKKeyStore
             {
                 throw new IOException("Wrong version of key store.");
             }
+            // CVE-2018-5382: version 0/1 stores derive a 16-bit HMAC integrity key (the v2 branch
+            // below passes getMacSize() * 8, the legacy branch passes only getMacSize()), which is
+            // brute-forceable offline. The version field is read from the untrusted file, so only
+            // honour a downgraded version when the caller has explicitly opted in to v1 handling.
+            if (!isEnableV1())
+            {
+                throw new IOException("BKS version 1 keystore not supported (set " + BKS_ENABLE_V1 + " to read legacy stores)");
+            }
         }
 
         int saltLength = dIn.readInt();
@@ -951,6 +964,34 @@ public class JDKKeyStore
         dOut.write(mac);
 
         dOut.close();
+    }
+
+    // 1.46 has no org.bouncycastle.util.Properties: upstream's property, read as a system property,
+    // set when it is "true" in any case (Properties.isOverrideSet)
+    private static boolean isEnableV1()
+    {
+        String value;
+
+        try
+        {
+            value = (String)AccessController.doPrivileged(new PrivilegedAction()
+            {
+                public Object run()
+                {
+                    return System.getProperty(BKS_ENABLE_V1);
+                }
+            });
+        }
+        catch (AccessControlException e)
+        {
+            return false;
+        }
+
+        return value != null && value.length() == 4
+            && (value.charAt(0) == 't' || value.charAt(0) == 'T')
+            && (value.charAt(1) == 'r' || value.charAt(1) == 'R')
+            && (value.charAt(2) == 'u' || value.charAt(2) == 'U')
+            && (value.charAt(3) == 'e' || value.charAt(3) == 'E');
     }
 
     /**
