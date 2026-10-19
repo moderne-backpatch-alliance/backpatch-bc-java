@@ -3,21 +3,35 @@ package org.bouncycastle.jce.provider.test;
 import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
 import java.security.InvalidKeyException;
+import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.SecureRandom;
 import java.security.Security;
 import java.security.SignatureException;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
+import java.security.interfaces.ECPublicKey;
+import java.security.spec.ECGenParameterSpec;
+import java.security.spec.ECPrivateKeySpec;
+import java.security.spec.ECPublicKeySpec;
 import java.util.Date;
+
+import javax.crypto.KeyAgreement;
 
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.sec.SECNamedCurves;
 import org.bouncycastle.asn1.x9.X9ECParameters;
+import org.bouncycastle.crypto.agreement.ECMQVBasicAgreement;
+import org.bouncycastle.crypto.params.ECDomainParameters;
+import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
+import org.bouncycastle.crypto.params.ECPublicKeyParameters;
+import org.bouncycastle.crypto.params.MQVPrivateParameters;
+import org.bouncycastle.crypto.params.MQVPublicParameters;
 import org.bouncycastle.jce.X509Principal;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.provider.JCEECPrivateKey;
@@ -25,6 +39,7 @@ import org.bouncycastle.jce.provider.JCEECPublicKey;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECPoint;
+import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Hex;
 import org.bouncycastle.util.test.SimpleTest;
 import org.bouncycastle.x509.X509V3CertificateGenerator;
@@ -151,6 +166,79 @@ public class ECEncodingTest
         }
     }
 
+    // test written for the backpatch (CVE-2015-7940): a public point off the curve given as coordinates (KeyFactory
+    // with an ECPublicKeySpec) is refused by ECDH and ECDHC, and one given to the lightweight ECMQV agreement is
+    // refused too; valid keys still agree
+    private void testAgreementRejectsPointOffCurve()
+        throws Exception
+    {
+        BigInteger d = new BigInteger("2b8e0a4e2d3a1c5f6e7d8c9b0a1f2e3d4c5b6a79881726354433221100ffeedd", 16);
+        String[] curves = { "secp256r1", "sect163k1" };
+        String[] agreements = { "ECDH", "ECDHC" };
+        KeyFactory kf = KeyFactory.getInstance("EC", "BC");
+        for (int i = 0; i != curves.length; i++)
+        {
+            KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC", "BC");
+            kpg.initialize(new ECGenParameterSpec(curves[i]), new SecureRandom());
+            KeyPair own = kpg.generateKeyPair();
+            KeyPair peer = kpg.generateKeyPair();
+            java.security.spec.ECParameterSpec spec = ((ECPublicKey)peer.getPublic()).getParams();
+            PublicKey ownPub = kf.generatePublic(new ECPublicKeySpec(((ECPublicKey)own.getPublic()).getW(), spec));
+            PublicKey peerPub = kf.generatePublic(new ECPublicKeySpec(((ECPublicKey)peer.getPublic()).getW(), spec));
+
+            PrivateKey priv = kf.generatePrivate(new ECPrivateKeySpec(d.mod(spec.getOrder()), spec));
+            java.security.spec.ECPoint g = spec.getGenerator();
+            PublicKey bad = kf.generatePublic(new ECPublicKeySpec(
+                new java.security.spec.ECPoint(g.getAffineX(), g.getAffineY().flipBit(0)), spec));
+
+            for (int j = 0; j != agreements.length; j++)
+            {
+                KeyAgreement ka = KeyAgreement.getInstance(agreements[j], "BC");
+                ka.init(own.getPrivate());
+                ka.doPhase(peerPub, true);
+                byte[] secret = ka.generateSecret();
+                ka.init(peer.getPrivate());
+                ka.doPhase(ownPub, true);
+                if (!Arrays.areEqual(secret, ka.generateSecret()))
+                {
+                    fail(curves[i] + " " + agreements[j] + ": valid keys did not agree");
+                }
+
+                ka.init(priv);
+                try
+                {
+                    ka.doPhase(bad, true);
+                    ka.generateSecret();
+                    fail(curves[i] + " " + agreements[j] + ": public point off the curve accepted");
+                }
+                catch (IllegalArgumentException e)
+                {
+                    // expected
+                }
+            }
+        }
+
+        X9ECParameters x9 = SECNamedCurves.getByName("secp256r1");
+        ECDomainParameters dp = new ECDomainParameters(x9.getCurve(), x9.getG(), x9.getN(), x9.getH());
+        ECMQVBasicAgreement mqv = new ECMQVBasicAgreement();
+        mqv.init(new MQVPrivateParameters(new ECPrivateKeyParameters(d, dp),
+            new ECPrivateKeyParameters(d.add(BigInteger.ONE), dp)));
+        ECPublicKeyParameters staticPub = new ECPublicKeyParameters(x9.getG().multiply(d.add(BigInteger.valueOf(2))), dp);
+        ECPublicKeyParameters ephemeralPub = new ECPublicKeyParameters(x9.getG().multiply(d.add(BigInteger.valueOf(3))), dp);
+        ECPublicKeyParameters offCurve = new ECPublicKeyParameters(x9.getCurve().createPoint(
+            x9.getG().getX().toBigInteger(), x9.getG().getY().toBigInteger().flipBit(0), false), dp);
+        mqv.calculateAgreement(new MQVPublicParameters(staticPub, ephemeralPub));
+        try
+        {
+            mqv.calculateAgreement(new MQVPublicParameters(staticPub, offCurve));
+            fail("secp256r1 ECMQV: ephemeral public point off the curve accepted");
+        }
+        catch (IllegalArgumentException e)
+        {
+            // expected
+        }
+    }
+
     private static byte[] uncompressed(int fieldSize, ECPoint p)
     {
         int len = (fieldSize + 7) / 8;
@@ -172,6 +260,7 @@ public class ECEncodingTest
         throws Exception
     {
         testDecodeRejectsPointOffCurve();
+        testAgreementRejectsPointOffCurve();
 
         testLargeMInF2m();
 

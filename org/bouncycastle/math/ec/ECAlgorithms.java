@@ -19,11 +19,11 @@ public class ECAlgorithms
             ECCurve.F2m f2mCurve = (ECCurve.F2m)c;
             if (f2mCurve.isKoblitz())
             {
-                return P.multiply(a).add(Q.multiply(b));
+                return ECAlgorithms.validatePoint(P.multiply(a).add(Q.multiply(b)));
             }
         }
 
-        return implShamirsTrick(P, a, Q, b);
+        return ECAlgorithms.validatePoint(implShamirsTrick(P, a, Q, b));
     }
 
     /*
@@ -53,7 +53,17 @@ public class ECAlgorithms
             throw new IllegalArgumentException("P and Q must be on same curve");
         }
 
-        return implShamirsTrick(P, k, Q, l);
+        return ECAlgorithms.validatePoint(implShamirsTrick(P, k, Q, l));
+    }
+
+    static ECPoint validatePoint(ECPoint p)
+    {
+        if (!p.isValid())
+        {
+            throw new IllegalArgumentException("Invalid point");
+        }
+
+        return p;
     }
 
     private static ECPoint implShamirsTrick(ECPoint P, BigInteger k,

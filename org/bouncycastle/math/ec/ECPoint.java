@@ -27,6 +27,12 @@ public abstract class ECPoint
         this.x = x;
         this.y = y;
     }
+
+    // not abstract: a subclass outside this package could not implement a package-private method
+    boolean satisfiesCurveEquation()
+    {
+        return true;
+    }
     
     public ECCurve getCurve()
     {
@@ -51,6 +57,33 @@ public abstract class ECPoint
     public boolean isCompressed()
     {
         return withCompression;
+    }
+
+    boolean isValid()
+    {
+        if (isInfinity())
+        {
+            return true;
+        }
+
+        // TODO Sanity-check the field elements
+
+        ECCurve curve = getCurve();
+        if (curve != null)
+        {
+            if (!satisfiesCurveEquation())
+            {
+                return false;
+            }
+
+            BigInteger h = (curve instanceof ECCurve.F2m) ? ((ECCurve.F2m)curve).getH() : null;
+            if (h != null && new ReferenceMultiplier().multiply(this, h, null).isInfinity())
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public boolean equals(
@@ -149,7 +182,13 @@ public abstract class ECPoint
         }
 
         assertECMultiplier();
-        return this.multiplier.multiply(this, k, preCompInfo);
+        ECPoint result = this.multiplier.multiply(this, k, preCompInfo);
+
+        /*
+         * Although the various multipliers ought not to produce invalid output under normal
+         * circumstances, a final check here is advised to guard against fault attacks.
+         */
+        return ECAlgorithms.validatePoint(result);
     }
 
     /**
@@ -189,7 +228,15 @@ public abstract class ECPoint
 
             this.withCompression = withCompression;
         }
-         
+
+        boolean satisfiesCurveEquation()
+        {
+            ECFieldElement X = this.x, Y = this.y, A = curve.getA(), B = curve.getB();
+            ECFieldElement lhs = Y.square();
+            ECFieldElement rhs = X.square().add(A).multiply(X).add(B);
+            return lhs.equals(rhs);
+        }
+
         /**
          * return the field element encoded with point compression. (S 4.3.6)
          */
@@ -369,6 +416,14 @@ public abstract class ECPoint
             }
             
             this.withCompression = withCompression;
+        }
+
+        boolean satisfiesCurveEquation()
+        {
+            ECFieldElement X = this.x, Y = this.y, A = curve.getA(), B = curve.getB();
+            ECFieldElement lhs = Y.add(X).multiply(Y);
+            ECFieldElement rhs = X.add(A).multiply(X.square()).add(B);
+            return lhs.equals(rhs);
         }
 
         /* (non-Javadoc)
