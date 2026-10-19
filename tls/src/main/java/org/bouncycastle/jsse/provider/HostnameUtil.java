@@ -20,9 +20,13 @@ import org.bouncycastle.asn1.x500.style.BCStyle;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.jsse.BCSNIHostName;
 import org.bouncycastle.util.IPAddress;
+import org.bouncycastle.util.Properties;
 
 class HostnameUtil
 {
+    // upstream's org.bouncycastle.util.Properties.JSSE_HOSTNAME_CHECK_CN_FALLBACK, which this release's bcprov does not have
+    private static final String JSSE_HOSTNAME_CHECK_CN_FALLBACK = "org.bouncycastle.jsse.hostname_check_cn_fallback";
+
     static void checkHostname(String hostname, X509Certificate certificate, boolean allWildcards) throws CertificateException
     {
         if (null == hostname)
@@ -98,11 +102,21 @@ class HostnameUtil
                 }
             }
 
-            ASN1Primitive commonName = findMostSpecificCN(certificate.getSubjectX500Principal());
-            if (commonName instanceof ASN1String
-                && matchesDNSName(hostname, ((ASN1String)commonName).getString(), allWildcards))
+            // RFC 9525 sec. 6.3 deprecates CN as a TLS server identifier; the
+            // CAB Forum Baseline Requirements forbid putting hostnames in CN
+            // for publicly-trusted server certs. The fallback below is also
+            // a Name-Constraints bypass surface, so it is gated behind the
+            // JSSE_HOSTNAME_CHECK_CN_FALLBACK property, default OFF. Set the property to "true" to restore the
+            // pre-fix SunJSSE-compatible behaviour for legacy certs that only
+            // identify the server via CN.
+            if (Properties.isOverrideSet(JSSE_HOSTNAME_CHECK_CN_FALLBACK))
             {
-                return;
+                ASN1Primitive commonName = findMostSpecificCN(certificate.getSubjectX500Principal());
+                if (commonName instanceof ASN1String
+                    && matchesDNSName(hostname, ((ASN1String)commonName).getString(), allWildcards))
+                {
+                    return;
+                }
             }
 
             throw new CertificateException("No name found matching " + hostname);
