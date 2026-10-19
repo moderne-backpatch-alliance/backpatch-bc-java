@@ -3,10 +3,12 @@ package org.bouncycastle.tls.crypto.impl.jcajce;
 import java.io.IOException;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
+import java.security.interfaces.RSAPrivateCrtKey;
 import java.security.interfaces.RSAPrivateKey;
 
 import javax.crypto.Cipher;
 
+import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
 import org.bouncycastle.tls.Certificate;
 import org.bouncycastle.tls.ProtocolVersion;
 import org.bouncycastle.tls.TlsCredentialedDecryptor;
@@ -83,6 +85,60 @@ public class JceDefaultTlsCredentialedDecryptor
          */
         ProtocolVersion expectedVersion = cryptoParams.getRSAPreMasterSecretVersion();
 
+        byte[] M = null;
+
+        try
+        {
+            Cipher c = crypto.createRSAEncryptionCipher();
+
+            RSAPrivateCrtKeyParameters crtKey = getBCPrivateCrtKey(c, rsaServerPrivateKey);
+            if (null != crtKey)
+            {
+                M = TlsRsaKeyExchange.decryptPreMasterSecret(encryptedPreMasterSecret, 0,
+                    encryptedPreMasterSecret.length, crtKey, expectedVersion.getFullVersion(), secureRandom);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Fallback
+        }
+
+        if (null == M)
+        {
+            M = safeDecryptPreMasterSecretWithCipher(expectedVersion, rsaServerPrivateKey, encryptedPreMasterSecret,
+                secureRandom);
+        }
+
+        return crypto.createSecret(M);
+    }
+
+    /*
+     * The BC provider's RSA, done here with the light-weight API so that the PKCS#1 check and the version
+     * check run without a BadPaddingException or any other secret-dependent branch. Only for a key the
+     * provider would itself use as a CRT key; anything else goes through the provider's Cipher.
+     */
+    private static RSAPrivateCrtKeyParameters getBCPrivateCrtKey(Cipher c, PrivateKey privateKey)
+    {
+        if (!"BC".equals(c.getProvider().getName()) || !(privateKey instanceof RSAPrivateCrtKey))
+        {
+            return null;
+        }
+
+        RSAPrivateCrtKey k = (RSAPrivateCrtKey)privateKey;
+        if (null == k.getModulus() || null == k.getPublicExponent() || null == k.getPrivateExponent()
+            || null == k.getPrimeP() || null == k.getPrimeQ() || null == k.getPrimeExponentP()
+            || null == k.getPrimeExponentQ() || null == k.getCrtCoefficient())
+        {
+            return null;
+        }
+
+        return new RSAPrivateCrtKeyParameters(k.getModulus(), k.getPublicExponent(), k.getPrivateExponent(),
+            k.getPrimeP(), k.getPrimeQ(), k.getPrimeExponentP(), k.getPrimeExponentQ(), k.getCrtCoefficient());
+    }
+
+    private byte[] safeDecryptPreMasterSecretWithCipher(ProtocolVersion expectedVersion,
+        PrivateKey rsaServerPrivateKey, byte[] encryptedPreMasterSecret, SecureRandom secureRandom)
+    {
         // TODO Provide as configuration option?
         boolean versionNumberCheckDisabled = false;
 
@@ -146,6 +202,6 @@ public class JceDefaultTlsCredentialedDecryptor
             }
         }
 
-        return crypto.createSecret(M);
+        return M;
     }
 }
