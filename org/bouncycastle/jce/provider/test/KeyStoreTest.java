@@ -2,6 +2,7 @@ package org.bouncycastle.jce.provider.test;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -24,10 +25,15 @@ import java.util.Date;
 import java.util.Hashtable;
 import java.util.Vector;
 
+import org.bouncycastle.crypto.PBEParametersGenerator;
+import org.bouncycastle.crypto.digests.SHA1Digest;
+import org.bouncycastle.crypto.generators.PKCS12ParametersGenerator;
+import org.bouncycastle.crypto.macs.HMac;
 import org.bouncycastle.jce.X509Principal;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.math.ec.ECCurve;
+import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Hex;
 import org.bouncycastle.util.test.SimpleTest;
 import org.bouncycastle.x509.X509V3CertificateGenerator;
@@ -304,6 +310,158 @@ public class KeyStoreTest
         ecStoreTest("BKS");
         checkOversizedEntryRejected();
         checkLargeEntryStreamed();
+        checkStoreMacKeyStrength();
+        checkVersion1StoreMigrates();
+    }
+
+    // CVE-2018-5382: BKS version 0/1 stores key their HMAC-SHA1 integrity MAC with getMacSize() = 20 bits
+    // (a 2-byte key); BC 1.47's version 2 store asks for getMacSize() * 8 = 160 bits.
+
+    private static final byte[] storeSecret = Hex.decode("000102030405060708090a0b0c0d0e0f");
+
+    private byte[] createSecretEntryStore(char[] password)
+        throws Exception
+    {
+        KeyStore store = KeyStore.getInstance("BKS", "BC");
+
+        store.load(null, null);
+        store.setKeyEntry("trust", storeSecret, null);
+
+        ByteArrayOutputStream bOut = new ByteArrayOutputStream();
+
+        store.store(bOut, password);
+
+        return bOut.toByteArray();
+    }
+
+    private static int readStoreVersion(byte[] store)
+        throws IOException
+    {
+        return new DataInputStream(new ByteArrayInputStream(store)).readInt();
+    }
+
+    private static byte[] readStoreMac(byte[] store)
+    {
+        byte[] mac = new byte[20];
+
+        System.arraycopy(store, store.length - mac.length, mac, 0, mac.length);
+
+        return mac;
+    }
+
+    // the HMAC-SHA1 BKS computes over a store's entries, with a PKCS#12 PBE MAC key of macKeyBits bits
+    private static byte[] calculateStoreMac(byte[] store, char[] password, int macKeyBits)
+        throws IOException
+    {
+        DataInputStream dIn = new DataInputStream(new ByteArrayInputStream(store));
+
+        dIn.readInt();                                  // store version
+
+        byte[] salt = new byte[dIn.readInt()];
+
+        dIn.readFully(salt);
+
+        int iterationCount = dIn.readInt();
+        int bodyStart = 4 + 4 + salt.length + 4;
+        int bodyLength = store.length - 20 - bodyStart;
+
+        PBEParametersGenerator pbeGen = new PKCS12ParametersGenerator(new SHA1Digest());
+
+        pbeGen.init(PBEParametersGenerator.PKCS12PasswordToBytes(password), salt, iterationCount);
+
+        HMac hMac = new HMac(new SHA1Digest());
+
+        hMac.init(pbeGen.generateDerivedMacParameters(macKeyBits));
+        hMac.update(store, bodyStart, bodyLength);
+
+        byte[] mac = new byte[hMac.getMacSize()];
+
+        hMac.doFinal(mac, 0);
+
+        return mac;
+    }
+
+    // a copy of store with the given version field and its MAC recomputed with a macKeyBits key
+    private static byte[] rewriteStore(byte[] store, int version, char[] password, int macKeyBits)
+        throws IOException
+    {
+        byte[] copy = Arrays.clone(store);
+
+        copy[0] = (byte)(version >>> 24);
+        copy[1] = (byte)(version >>> 16);
+        copy[2] = (byte)(version >>> 8);
+        copy[3] = (byte)version;
+
+        byte[] mac = calculateStoreMac(copy, password, macKeyBits);
+
+        System.arraycopy(mac, 0, copy, copy.length - mac.length, mac.length);
+
+        return copy;
+    }
+
+    private void checkStoreMacKeyStrength()
+        throws Exception
+    {
+        byte[] store = createSecretEntryStore(passwd);
+
+        if (!Arrays.areEqual(readStoreMac(store), calculateStoreMac(store, passwd, 160)))
+        {
+            fail("BKS store MAC is not keyed with 160 bits");
+        }
+        if (readStoreVersion(store) != 2)
+        {
+            fail("BKS store written as version " + readStoreVersion(store) + ", not 2");
+        }
+
+        // a version 2 store whose MAC was made with the legacy 2-byte key fails its integrity check
+        byte[] weakMac = rewriteStore(store, 2, passwd, 20);
+        KeyStore ks = KeyStore.getInstance("BKS", "BC");
+
+        try
+        {
+            ks.load(new ByteArrayInputStream(weakMac), passwd);
+            fail("version 2 BKS store with a 16-bit-key MAC accepted");
+        }
+        catch (IOException e)
+        {
+            if (!"KeyStore integrity check failed.".equals(e.getMessage()))
+            {
+                fail("unexpected exception: " + e.getMessage());
+            }
+        }
+    }
+
+    // a store as unpatched 1.46 writes it (version 1, 2-byte MAC key) loads, and store() rewrites it as version 2
+    private void checkVersion1StoreMigrates()
+        throws Exception
+    {
+        byte[] v1Store = rewriteStore(createSecretEntryStore(passwd), 1, passwd, 20);
+        KeyStore ks = KeyStore.getInstance("BKS", "BC");
+
+        ks.load(new ByteArrayInputStream(v1Store), passwd);
+
+        ByteArrayOutputStream bOut = new ByteArrayOutputStream();
+
+        ks.store(bOut, passwd);
+
+        byte[] migrated = bOut.toByteArray();
+
+        if (readStoreVersion(migrated) != 2)
+        {
+            fail("re-saved version 1 BKS store written as version " + readStoreVersion(migrated) + ", not 2");
+        }
+        if (!Arrays.areEqual(readStoreMac(migrated), calculateStoreMac(migrated, passwd, 160)))
+        {
+            fail("re-saved version 1 BKS store MAC is not keyed with 160 bits");
+        }
+
+        ks = KeyStore.getInstance("BKS", "BC");
+        ks.load(new ByteArrayInputStream(migrated), passwd);
+
+        if (ks.size() != 1 || !ks.isKeyEntry("trust"))
+        {
+            fail("re-saved version 1 BKS store lost its entry");
+        }
     }
 
     // CVE-2026-12185: upstream 7bbd7fe5f's two tests, with store version 1 (the version 1.46 writes) instead of 2
