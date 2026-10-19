@@ -23,6 +23,7 @@ public class AllTests
         suite.addTestSuite(BasicTlsTest.class);
         suite.addTestSuite(ConfigTest.class);
         suite.addTestSuite(ECDSACredentialsTest.class);
+        suite.addTestSuite(EndpointIdentificationByAddressTest.class);
         suite.addTestSuite(EdDSACredentialsTest.class);
         suite.addTestSuite(InstanceTest.class);
         suite.addTestSuite(KeyManagerFactoryTest.class);
