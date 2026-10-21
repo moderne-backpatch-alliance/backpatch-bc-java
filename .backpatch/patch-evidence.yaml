@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.69.1-backpatch-00026
+release: 1.69.1-backpatch-00027
 baseline: v1.69+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -214,12 +214,20 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: New in this release; adapted onto 1.69; fixed at 1.69.1-backpatch-00026 (backpatch-bc-java@8145207).
+    note: Carried from 1.69.1-backpatch-00026.
+  - cve: CVE-2026-0636
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/78cbd92dadaf814cad0057bd6488459e37e97c9e
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-0636
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/e02d02b
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+    note: New in this release; adapted onto 1.69; fixed at 1.69.1-backpatch-00027 (backpatch-bc-java@e02d02b).
 tests:
-  commit: 814520794518dcfd50ad2707348362418abfb754
+  commit: e02d02be9710495662c38d9d7363970f88a7bcc7
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcprov-jdk15on-1.69.1-backpatch-00026-tests.zip
-  report_sha256: d3ed6850cdb90d6214394da431212649c308c30fd523c3432351828620f7cdc4
+  report: bcprov-jdk15on-1.69.1-backpatch-00027-tests.zip
+  report_sha256: 8c896bb5bee84d148850822d9cce3faea2e523463bf3df7ef6688bb2b490b7bd
   result: pass
-  note: the full suite at the tested commit, 1117 tests run, 0 failed, 0 skipped; the regression tests for CVE-2023-33201 are X509LDAPCertStoreTest
+  note: the full suite at the tested commit, 1117 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-0636 are X509LDAPCertStoreTest
