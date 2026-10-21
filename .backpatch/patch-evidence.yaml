@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.69.1-backpatch-00014
+release: 1.69.1-backpatch-00015
 baseline: v1.69+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -115,12 +115,20 @@ fixes:
     artifacts:
       - org.bouncycastle:bcpkix-jdk15on
       - org.bouncycastle:bcutil-jdk15on
-    note: New in this release; ported onto 1.69; fixed at 1.69.1-backpatch-00014 (backpatch-bc-java@7971e9c).
+    note: Carried from 1.69.1-backpatch-00014.
+  - cve: CVE-2026-71889
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/06dcff2f51037095de126986285c998e3455ab85
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-71889
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/411eb73
+    basis: backport
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+    note: New in this release; ported onto 1.69; fixed at 1.69.1-backpatch-00015 (backpatch-bc-java@411eb73).
 tests:
-  commit: 7971e9c5a39321d5624eedbf4572ada2db235269
+  commit: 411eb73cdda13564d662e5b2712cb08f60831f31
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcpkix-jdk15on-1.69.1-backpatch-00014-tests.zip
-  report_sha256: dc41e743dac429876b152380fb2f986fc3eda7e107d98329e92fd3b905ef54b1
+  report: bcprov-jdk15on-1.69.1-backpatch-00015-tests.zip
+  report_sha256: ce93a205403ce6c274d4232bc3e4c004e93da82c8d287b751debfa2f6827562e
   result: pass
-  note: the full suite at the tested commit, 1107 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-71888 are NewAuthenticatedDataStreamTest
+  note: the full suite at the tested commit, 1108 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-71889 are CheckNameConstraintsTest
