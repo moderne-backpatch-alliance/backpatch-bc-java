@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.69.1-backpatch-00001
+release: 1.69.1-backpatch-00002
 baseline: v1.69+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -10,12 +10,20 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: New in this release; adapted onto 1.69; fixed at 1.69.1-backpatch-00001 (backpatch-bc-java@123233f).
+    note: Carried from 1.69.1-backpatch-00001.
+  - cve: CVE-2026-5588
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/ebf4ecadaed88481d58e17853df1ba9bedb46a8c
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-5588
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/1ad278c
+    basis: backport
+    artifacts:
+      - org.bouncycastle:bcpkix-jdk15on
+    note: New in this release; ported onto 1.69; fixed at 1.69.1-backpatch-00002 (backpatch-bc-java@1ad278c).
 tests:
-  commit: 123233facd64861b090476d9741c2a89fe5f8a66
+  commit: 1ad278c2c03d8002cea9d585f7c21951cad5c71c
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcprov-jdk15on-1.69.1-backpatch-00001-tests.zip
-  report_sha256: 9bb15bc1e1980fc0d8fdcb47cf2848b3f8962357135e6fbc581606244e2e632d
+  report: bcpkix-jdk15on-1.69.1-backpatch-00002-tests.zip
+  report_sha256: 5f39192c1aad0a6ef3701b21e1f3308276570c43847d6ddc13c7f015d287db7e
   result: pass
-  note: the full suite at the tested commit, 1091 tests run, 0 failed, 0 skipped; the regression tests for CVE-2024-29857 are ECPointTest
+  note: the full suite at the tested commit, 1092 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-5588 are AllTests
