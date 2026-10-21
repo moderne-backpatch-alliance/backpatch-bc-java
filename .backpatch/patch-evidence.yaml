@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.69.1-backpatch-00016
+release: 1.69.1-backpatch-00017
 baseline: v1.69+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -131,12 +131,20 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: New in this release; adapted onto 1.69; fixed at 1.69.1-backpatch-00016 (backpatch-bc-java@5483bde).
+    note: Carried from 1.69.1-backpatch-00016.
+  - cve: CVE-2026-58059
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/7bf20eea8c1b71a4d3574b75ba20ccf26ffff36b
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-58059
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/f4b7618
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+    note: New in this release; adapted onto 1.69; fixed at 1.69.1-backpatch-00017 (backpatch-bc-java@f4b7618).
 tests:
-  commit: 5483bde177ccb2c3d22bd0ff791af968f7b669d1
+  commit: f4b76184bbfb9264b60d27860eb5786b8dc6f051
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcprov-jdk15on-1.69.1-backpatch-00016-tests.zip
-  report_sha256: ba3b7dabb9206a6de25335b41f9fe06eaee0b94064aa34929cc2178ec5356f15
+  report: bcprov-jdk15on-1.69.1-backpatch-00017-tests.zip
+  report_sha256: af3e7245fedf79bedff5a9ee30d49512222877c9fd99732e1888421bd8ca9046
   result: pass
-  note: the full suite at the tested commit, 1108 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-58061 are CCMTest, DSTU7624Test
+  note: the full suite at the tested commit, 1108 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-58059 are RDNEscapeTest, RegressionTest, X500NameTest
