@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.69.1-backpatch-00022
+release: 1.69.1-backpatch-00023
 baseline: v1.69+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -182,12 +182,20 @@ fixes:
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
       - org.bouncycastle:bcpkix-jdk15on
-    note: New in this release; adapted onto 1.69; fixed at 1.69.1-backpatch-00022 (backpatch-bc-java@e0d24e4).
+    note: Carried from 1.69.1-backpatch-00022.
+  - cve: CVE-2026-58063
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/81737a56ef4489da1f849cf549df95e338ea6b06
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-58063
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/6b94261
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+    note: New in this release; adapted onto 1.69; fixed at 1.69.1-backpatch-00023 (backpatch-bc-java@6b94261).
 tests:
-  commit: e0d24e45baa7914e35b0a61b39f74dad6564ebaf
+  commit: 6b94261da207b0bcc4c2706c211241c5f267a26f
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcprov-jdk15on-1.69.1-backpatch-00022-tests.zip
-  report_sha256: 20f321e1b0dce5b855f0f462ecc211086a21f3c79998eea338c794f3250bbccd
+  report: bcprov-jdk15on-1.69.1-backpatch-00023-tests.zip
+  report_sha256: 9fc6e9c1e32b2267b94a9f16afd1092783bb5e33710a043f2978d5b3ff324ae3
   result: pass
-  note: the full suite at the tested commit, 1117 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-13586 are AllTests, PKCS12IterationLimitTest, PfxPduTest, RegressionTest
+  note: the full suite at the tested commit, 1117 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-58063 are BCFKSStoreTest
