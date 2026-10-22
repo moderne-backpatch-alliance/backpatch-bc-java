@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.69.1-backpatch-00032
+release: 1.69.1-backpatch-00033
 baseline: v1.69+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -262,12 +262,20 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: New in this release; ported onto 1.69; fixed at 1.69.1-backpatch-00032 (backpatch-bc-java@17a3798).
+    note: Carried from 1.69.1-backpatch-00032.
+  - cve: CVE-2026-59638
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/f675c3d23f5c3a1df9915f6e12fcf369731ce75c
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-59638
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/8d6c8dc
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bctls-jdk15on
+    note: New in this release; adapted onto 1.69; fixed at 1.69.1-backpatch-00033 (backpatch-bc-java@8d6c8dc).
 tests:
-  commit: 17a3798b63ac03d60fb806f843b7f3f7e08b23ba
-  command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
+  commit: 8d6c8dc9746086a33a60321a0d109440f00cd6a4
+  command: BC's Ant release build of bctls with the tree's own bcprov and bcutil (JDK 8, -source/-target 1.5, the jdk1.9 classes by OpenJDK 9.0.4 in a linux/amd64 container), then ant junit over every AllTests under tls/src/test/java (bctls-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bctls-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcprov-jdk15on-1.69.1-backpatch-00032-tests.zip
-  report_sha256: b92e56fd6fe795417ef75580667ef3ba846fe52d2e5c14ea03733732d2c666ef
+  report: bctls-jdk15on-1.69.1-backpatch-00033-tests.zip
+  report_sha256: 42f07d6eccd1b2d63dc7d76c50715cead4c5ca8d3309ca84560a6d7b8c16382f
   result: pass
-  note: the full suite at the tested commit, 1132 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-59651 are KeyStoreTest, BKSLegacyStoreTest
+  note: the full suite at the tested commit, 518 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-59638 are HostnameUtilTest
