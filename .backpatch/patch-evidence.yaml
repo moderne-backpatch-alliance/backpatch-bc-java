@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.70.1-backpatch-00009
+release: 1.70.1-backpatch-00010
 baseline: v1.70+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -74,12 +74,20 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00009 (backpatch-bc-java@83ea2a0..90c36ea).
+    note: Carried from 1.70.1-backpatch-00009.
+  - cve: CVE-2026-12803
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/697794413ebf7bc5e3fce609a707826ba52981af
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-12803
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/deda5ce
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00010 (backpatch-bc-java@deda5ce).
 tests:
-  commit: 90c36ea93c3d7b652cfe957e26da590235d622ef
+  commit: deda5cebbbc107fce0beb80dd1eda7dff8d73350
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcprov-jdk15on-1.70.1-backpatch-00009-tests.zip
-  report_sha256: 613f0778a422d64ee834be78539daaf6bbb38c02e26a7103ffbb0abb46af458b
+  report: bcprov-jdk15on-1.70.1-backpatch-00010-tests.zip
+  report_sha256: 53b8e002d3bd9f382305bb15e1ae7e4aa7793651dab88421d19f1501c107e30a
   result: pass
-  note: the full suite at the tested commit, 1136 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-58060 are AllTests, PublicKeyParseTest
+  note: the full suite at the tested commit, 1136 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-12803 are DSTU7624Test
