@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.69.1-backpatch-00034
+release: 1.69.1-backpatch-00035
 baseline: v1.69+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -278,12 +278,20 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bctls-jdk15on
-    note: New in this release; adapted onto 1.69; fixed at 1.69.1-backpatch-00034 (backpatch-bc-java@8532105..e0aecdc).
+    note: Carried from 1.69.1-backpatch-00034.
+  - cve: CVE-2026-59646
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/2ea38942c7917f6d7ab4de93d8a5336d021df0d9
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-59646
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/7ebd945
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bctls-jdk15on
+    note: New in this release; adapted onto 1.69; fixed at 1.69.1-backpatch-00035 (backpatch-bc-java@7ebd945).
 tests:
-  commit: e0aecdcbc71ecd57fde089343bb9d288dc80364b
+  commit: 7ebd9458d51ecdccb22df134da8b19e7fe8faf24
   command: BC's Ant release build of bctls with the tree's own bcprov and bcutil (JDK 8, -source/-target 1.5, the jdk1.9 classes by OpenJDK 9.0.4 in a linux/amd64 container), then ant junit over every AllTests under tls/src/test/java (bctls-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bctls-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bctls-jdk15on-1.69.1-backpatch-00034-tests.zip
-  report_sha256: 37c425522e7f752ef1e8a394e60de26fe42c5cb35e6d56319fa1b5d01ed5a57a
+  report: bctls-jdk15on-1.69.1-backpatch-00035-tests.zip
+  report_sha256: 9667cc28948ce2f78ec7f201c55198dd1735797e1463e6667fef3bb86344a57b
   result: pass
-  note: the full suite at the tested commit, 521 tests run, 0 failed, 0 skipped; the regression tests for CVE-2024-34447 are EndpointIdentificationByAddressTest
+  note: the full suite at the tested commit, 523 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-59646 are DTLSReassemblyLimitTest
