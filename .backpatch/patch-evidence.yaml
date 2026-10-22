@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.70.1-backpatch-00019
+release: 1.70.1-backpatch-00020
 baseline: v1.70+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -155,12 +155,20 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00019 (backpatch-bc-java@b6e8481).
+    note: Carried from 1.70.1-backpatch-00019.
+  - cve: CVE-2026-8763
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/b2769e8e7e2ac890de2ee6539cb2ec0450f34d79
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-8763
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/compare/4885d19~1...47b94f8
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00020 (backpatch-bc-java@4885d19..47b94f8).
 tests:
-  commit: b6e848186fa58f1ee2ee32de9105ba5463499e20
+  commit: 47b94f8cd6825583c8633ee7fc94c2cc7ba19b94
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcprov-jdk15on-1.70.1-backpatch-00019-tests.zip
-  report_sha256: f3abb573c0154137c6f873d95789badd6c1097bb04bfe83098c864e5b21d85cb
+  report: bcprov-jdk15on-1.70.1-backpatch-00020-tests.zip
+  report_sha256: 2f51966eea8f2532b7e436bc513d633980a41b816611b429c2421e4bc92b4058
   result: pass
-  note: the full suite at the tested commit, 1152 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-58059 are RDNEscapeTest, RegressionTest, X500NameTest
+  note: the full suite at the tested commit, 1153 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-8763 are PKIXNameConstraintsTest, CertPathValidatorTest, MultiValuedRDNEmailTest
