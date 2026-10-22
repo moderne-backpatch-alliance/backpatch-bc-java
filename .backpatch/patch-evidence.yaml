@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.70.1-backpatch-00022
+release: 1.70.1-backpatch-00023
 baseline: v1.70+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -179,12 +179,21 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00022 (backpatch-bc-java@3cfc083).
+    note: Carried from 1.70.1-backpatch-00022.
+  - cve: CVE-2026-59647
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/c99d6427d6818d04165b07b45dfda96f2b384c53
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-59647
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/e8a47a3
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+      - org.bouncycastle:bcpkix-jdk15on
+    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00023 (backpatch-bc-java@e8a47a3).
 tests:
-  commit: 3cfc0838a2493d0bdfa63663125b347dea92b760
+  commit: e8a47a326c626bac5e5e8507ccc55829163c3b9c
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcprov-jdk15on-1.70.1-backpatch-00022-tests.zip
-  report_sha256: c6fef801e944e9655848c55221cb01df73250d137604d58906f60dd5567f6a5c
+  report: bcprov-jdk15on-1.70.1-backpatch-00023-tests.zip
+  report_sha256: c5b2cf7d23b30d0e536e70148a98fa18d7e4a01c10a57c93da884002ecada133
   result: pass
-  note: the full suite at the tested commit, 1153 tests run, 0 failed, 0 skipped; the regression tests for CVE-2023-33202 are RegressionTest, SetSortCacheTest
+  note: the full suite at the tested commit, 1154 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-59647 are AllTests
