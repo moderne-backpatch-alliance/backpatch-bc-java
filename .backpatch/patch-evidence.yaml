@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.70.1-backpatch-00002
+release: 1.70.1-backpatch-00003
 baseline: v1.70+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -18,12 +18,20 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcpkix-jdk15on
-    note: New in this release; ported onto 1.70; fixed at 1.70.1-backpatch-00002 (backpatch-bc-java@a89fea4).
+    note: Carried from 1.70.1-backpatch-00002.
+  - cve: CVE-2025-8916
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/ff444a479942d88de64004dc82c3ee32a9e9075a
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2025-8916
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/5f0905f
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00003 (backpatch-bc-java@5f0905f).
 tests:
-  commit: a89fea41a7b77b3b9941b4ab4e6e7215887ff8b0
+  commit: 5f0905faf181ec09e6b77bee38154b26921d040a
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcpkix-jdk15on-1.70.1-backpatch-00002-tests.zip
-  report_sha256: 6d1437eef2726bdc8e856cb802b2179def9847430288f9e10f9a5bb31f06a23b
+  report: bcprov-jdk15on-1.70.1-backpatch-00003-tests.zip
+  report_sha256: 194c895e8ff9c880a5e59c2ded963597cb3b73c108a608efcdea9a9600f08a00
   result: pass
-  note: the full suite at the tested commit, 1125 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-5588 are AllTests
+  note: the full suite at the tested commit, 1129 tests run, 0 failed, 0 skipped; the regression tests for CVE-2025-8916 are AllTests, CheckNameConstraintsTest
