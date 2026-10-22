@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.69.1-backpatch-00033
+release: 1.69.1-backpatch-00034
 baseline: v1.69+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -270,12 +270,20 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bctls-jdk15on
-    note: New in this release; adapted onto 1.69; fixed at 1.69.1-backpatch-00033 (backpatch-bc-java@8d6c8dc).
+    note: Carried from 1.69.1-backpatch-00033.
+  - cve: CVE-2024-34447
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/c47f6444a744396135322784b5fea1d35d46a8a7
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2024-34447
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/compare/8532105~1...e0aecdc
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bctls-jdk15on
+    note: New in this release; adapted onto 1.69; fixed at 1.69.1-backpatch-00034 (backpatch-bc-java@8532105..e0aecdc).
 tests:
-  commit: 8d6c8dc9746086a33a60321a0d109440f00cd6a4
+  commit: e0aecdcbc71ecd57fde089343bb9d288dc80364b
   command: BC's Ant release build of bctls with the tree's own bcprov and bcutil (JDK 8, -source/-target 1.5, the jdk1.9 classes by OpenJDK 9.0.4 in a linux/amd64 container), then ant junit over every AllTests under tls/src/test/java (bctls-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bctls-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bctls-jdk15on-1.69.1-backpatch-00033-tests.zip
-  report_sha256: 42f07d6eccd1b2d63dc7d76c50715cead4c5ca8d3309ca84560a6d7b8c16382f
+  report: bctls-jdk15on-1.69.1-backpatch-00034-tests.zip
+  report_sha256: 37c425522e7f752ef1e8a394e60de26fe42c5cb35e6d56319fa1b5d01ed5a57a
   result: pass
-  note: the full suite at the tested commit, 518 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-59638 are HostnameUtilTest
+  note: the full suite at the tested commit, 521 tests run, 0 failed, 0 skipped; the regression tests for CVE-2024-34447 are EndpointIdentificationByAddressTest
