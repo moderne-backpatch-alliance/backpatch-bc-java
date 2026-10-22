@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.70.1-backpatch-00027
+release: 1.70.1-backpatch-00028
 baseline: v1.70+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -222,12 +222,20 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00027 (backpatch-bc-java@1a4273f).
+    note: Carried from 1.70.1-backpatch-00027.
+  - cve: CVE-2026-97873
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/4044aea58992a26a03bad4f21cbda410c995acec
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-97873
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/defbfbc
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00028 (backpatch-bc-java@defbfbc).
 tests:
-  commit: 1a4273f334c3efd3dd8fbda7cc5583c5ddd21fe7
+  commit: defbfbcf9f4c77c8c136cc46b0431147db41f100
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcprov-jdk15on-1.70.1-backpatch-00027-tests.zip
-  report_sha256: 853663d435f323c74f3dd4cbeae84521d5c06fb7bc972e1865ffd8a40f8064e6
+  report: bcprov-jdk15on-1.70.1-backpatch-00028-tests.zip
+  report_sha256: 0927fff146ea27e0df377104aecbfd681fb53c71ef0922f4fa0a0d845a6d68c3
   result: pass
-  note: the full suite at the tested commit, 1161 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-17508 are BCFKSStoreTest, PBETest
+  note: the full suite at the tested commit, 1161 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-97873 are PBEIterationCountTest, RegressionTest
