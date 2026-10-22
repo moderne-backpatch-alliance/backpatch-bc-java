@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.70.1-backpatch-00030
+release: 1.70.1-backpatch-00031
 baseline: v1.70+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -246,12 +246,20 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00030 (backpatch-bc-java@6bc6607).
+    note: Carried from 1.70.1-backpatch-00030.
+  - cve: CVE-2026-12802
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/0fefa539e6ac5c66e1daee5a13b23d1d4769cc01
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-12802
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/6e63582
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcpkix-jdk15on
+    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00031 (backpatch-bc-java@6e63582).
 tests:
-  commit: 6bc6607a9556584e483f4c1883688d55db867f10
+  commit: 6e63582be743b0a26ec2a198ffdc67d1cdd84135
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcprov-jdk15on-1.70.1-backpatch-00030-tests.zip
-  report_sha256: 48c2a9ca32d087039cfabcd0dc6acc92790e6ea49cbd9f6bd1d79a0ad0bc43e1
+  report: bcpkix-jdk15on-1.70.1-backpatch-00031-tests.zip
+  report_sha256: 56c837bf828ddb68eed1d78e569316031a073fd9b02828ead59dcceccb5def78
   result: pass
-  note: the full suite at the tested commit, 1161 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-0636 are X509LDAPCertStoreTest
+  note: the full suite at the tested commit, 1162 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-12802 are AuthEnvelopedDataTest
