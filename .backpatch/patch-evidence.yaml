@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.70.1-backpatch-00006
+release: 1.70.1-backpatch-00007
 baseline: v1.70+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -50,12 +50,20 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: New in this release; ported onto 1.70; fixed at 1.70.1-backpatch-00006 (backpatch-bc-java@e4410b2).
+    note: Carried from 1.70.1-backpatch-00006.
+  - cve: CVE-2026-12860
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/6ee829bbe8bd1f423f1d6ec3d272eb2b25b09a28
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-12860
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/245918f
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00007 (backpatch-bc-java@245918f).
 tests:
-  commit: e4410b2dfd04e91562a96eb830c66d3d567f1927
+  commit: 245918f20a9b88bdec1ec47522ab8b3e839e24fd
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcprov-jdk15on-1.70.1-backpatch-00006-tests.zip
-  report_sha256: 9405f729a0e17ba601cfd5e44da9634390160f615d405fb44638384f64661b5b
+  report: bcprov-jdk15on-1.70.1-backpatch-00007-tests.zip
+  report_sha256: e612b99e8bdf2342e97878b7ccd02aec1d72dcafc72798896c29f1743a87ca68
   result: pass
-  note: the full suite at the tested commit, 1129 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-59650 are DHTest
+  note: the full suite at the tested commit, 1129 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-12860 are RSADigestSignerTest
