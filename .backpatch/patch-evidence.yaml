@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.70.1-backpatch-00008
+release: 1.70.1-backpatch-00009
 baseline: v1.70+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -66,12 +66,20 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: New in this release; ported onto 1.70; fixed at 1.70.1-backpatch-00008 (backpatch-bc-java@f1cb1f2).
+    note: Carried from 1.70.1-backpatch-00008.
+  - cve: CVE-2026-58060
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/311cabbb6fcead7647fec16681423a4439118276
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-58060
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/compare/83ea2a0~1...90c36ea
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00009 (backpatch-bc-java@83ea2a0..90c36ea).
 tests:
-  commit: f1cb1f2dc20ff52addd2d6f39884f9330600f0ee
+  commit: 90c36ea93c3d7b652cfe957e26da590235d622ef
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcprov-jdk15on-1.70.1-backpatch-00008-tests.zip
-  report_sha256: 270524f07ccf97a66c0da75ca5024db4bcfc13f8347f67741d69e0bf2d31e431
+  report: bcprov-jdk15on-1.70.1-backpatch-00009-tests.zip
+  report_sha256: 613f0778a422d64ee834be78539daaf6bbb38c02e26a7103ffbb0abb46af458b
   result: pass
-  note: the full suite at the tested commit, 1129 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-12185 are KeyStoreTest
+  note: the full suite at the tested commit, 1136 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-58060 are AllTests, PublicKeyParseTest
