@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.70.1-backpatch-00017
+release: 1.70.1-backpatch-00018
 baseline: v1.70+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -139,12 +139,20 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00017 (backpatch-bc-java@95f9515..431dc59).
+    note: Carried from 1.70.1-backpatch-00017.
+  - cve: CVE-2026-14682
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/84cba7586d99b048cee9fdf81ec6720fd7b50521
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-14682
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/d084a74
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00018 (backpatch-bc-java@d084a74).
 tests:
-  commit: 431dc59512ecc616c3ebb567d058be1a525bfb8d
+  commit: d084a747159bd756d5ac0b08a2b1582ae4136193
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcprov-jdk15on-1.70.1-backpatch-00017-tests.zip
-  report_sha256: d16c587fca2b0524b54772eb582ce9b86f84ceb1f799289d84d709a53cd102a5
+  report: bcprov-jdk15on-1.70.1-backpatch-00018-tests.zip
+  report_sha256: 6d1b2fa65e516f8ca754c6f8273c5dd326cf7ddbea8a539fd5744603e6bce139
   result: pass
-  note: the full suite at the tested commit, 1146 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-13506 are ASN1SequenceParserTest
+  note: the full suite at the tested commit, 1152 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-14682 are AllTests, BMPStringAllocationTest, DefiniteLengthAllocationTest, RegressionTest, StreamsTest
