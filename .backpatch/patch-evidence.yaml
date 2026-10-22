@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.70.1-backpatch-00020
+release: 1.70.1-backpatch-00021
 baseline: v1.70+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -163,12 +163,20 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00020 (backpatch-bc-java@4885d19..47b94f8).
+    note: Carried from 1.70.1-backpatch-00020.
+  - cve: CVE-2025-8885
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/3790993df5d28f661a64439a8664343437ed3865
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2025-8885
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/a851aa6
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00021 (backpatch-bc-java@a851aa6).
 tests:
-  commit: 47b94f8cd6825583c8633ee7fc94c2cc7ba19b94
+  commit: a851aa61332fbbccdfaf39333208347d593d80a2
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcprov-jdk15on-1.70.1-backpatch-00020-tests.zip
-  report_sha256: 2f51966eea8f2532b7e436bc513d633980a41b816611b429c2421e4bc92b4058
+  report: bcprov-jdk15on-1.70.1-backpatch-00021-tests.zip
+  report_sha256: d2002dc146daebd6263713b920ccbb7aa2210ce02accce5e7271edb4c7c4461e
   result: pass
-  note: the full suite at the tested commit, 1153 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-8763 are PKIXNameConstraintsTest, CertPathValidatorTest, MultiValuedRDNEmailTest
+  note: the full suite at the tested commit, 1153 tests run, 0 failed, 0 skipped; the regression tests for CVE-2025-8885 are OIDLengthLimitTest, RegressionTest
