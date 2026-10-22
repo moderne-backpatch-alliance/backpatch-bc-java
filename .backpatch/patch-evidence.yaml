@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.70.1-backpatch-00013
+release: 1.70.1-backpatch-00014
 baseline: v1.70+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -106,12 +106,21 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcpkix-jdk15on
-    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00013 (backpatch-bc-java@c90feae).
+    note: Carried from 1.70.1-backpatch-00013.
+  - cve: CVE-2026-71888
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/dcb683b32b440f1beb1d2276a34930164281fb95
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-71888
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/7567976
+    basis: backport
+    artifacts:
+      - org.bouncycastle:bcpkix-jdk15on
+      - org.bouncycastle:bcutil-jdk15on
+    note: New in this release; ported onto 1.70; fixed at 1.70.1-backpatch-00014 (backpatch-bc-java@7567976).
 tests:
-  commit: c90feae6ca8c82d75e16bab2c803c6eb64955733
+  commit: 75679765f9311279505d1598eb19f7fbf86e57f6
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcpkix-jdk15on-1.70.1-backpatch-00013-tests.zip
-  report_sha256: a1c57a9237e97a54bc20285d7fc141b6e2967987c4cfe20ad99f4263098f9c7a
+  report: bcpkix-jdk15on-1.70.1-backpatch-00014-tests.zip
+  report_sha256: 00b4832903b162b2ecf288d5a031d441eb808d28ae6b17e656fc2ca4a3f9713a
   result: pass
-  note: the full suite at the tested commit, 1138 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-59642 are NewAuthenticatedDataTest
+  note: the full suite at the tested commit, 1140 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-71888 are NewAuthenticatedDataStreamTest
