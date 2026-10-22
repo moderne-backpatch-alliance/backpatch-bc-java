@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.70.1-backpatch-00003
+release: 1.70.1-backpatch-00004
 baseline: v1.70+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -26,12 +26,20 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00003 (backpatch-bc-java@5f0905f).
+    note: Carried from 1.70.1-backpatch-00003.
+  - cve: CVE-2025-14813
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/d883c9a3ed77a3ad362bb86ced7758a450d6eebf
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2025-14813
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/6bf194a
+    basis: backport
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+    note: New in this release; ported onto 1.70; fixed at 1.70.1-backpatch-00004 (backpatch-bc-java@6bf194a).
 tests:
-  commit: 5f0905faf181ec09e6b77bee38154b26921d040a
+  commit: 6bf194a0998ecb0c49fd53d7952ca3ff423a5017
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcprov-jdk15on-1.70.1-backpatch-00003-tests.zip
-  report_sha256: 194c895e8ff9c880a5e59c2ded963597cb3b73c108a608efcdea9a9600f08a00
+  report: bcprov-jdk15on-1.70.1-backpatch-00004-tests.zip
+  report_sha256: 2ae981bfd7f24388e3dd80e0ba0ed4169d4a8fca4a1d7fa66411b08f1e0bd4f8
   result: pass
-  note: the full suite at the tested commit, 1129 tests run, 0 failed, 0 skipped; the regression tests for CVE-2025-8916 are AllTests, CheckNameConstraintsTest
+  note: the full suite at the tested commit, 1129 tests run, 0 failed, 0 skipped; the regression tests for CVE-2025-14813 are GOST3412Test
