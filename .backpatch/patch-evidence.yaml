@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.70.1-backpatch-00031
+release: 1.70.1-backpatch-00032
 baseline: v1.70+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -254,12 +254,20 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcpkix-jdk15on
-    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00031 (backpatch-bc-java@6e63582).
+    note: Carried from 1.70.1-backpatch-00031.
+  - cve: CVE-2026-59645
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/822b2478b131097368a56290f5728e28dd042989
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-59645
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/d35a6b3
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcutil-jdk15on
+    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00032 (backpatch-bc-java@d35a6b3).
 tests:
-  commit: 6e63582be743b0a26ec2a198ffdc67d1cdd84135
+  commit: d35a6b3930bd79af59cf3f2a1bb97dbe44a663b3
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcpkix-jdk15on-1.70.1-backpatch-00031-tests.zip
-  report_sha256: 56c837bf828ddb68eed1d78e569316031a073fd9b02828ead59dcceccb5def78
+  report: bcutil-jdk15on-1.70.1-backpatch-00032-tests.zip
+  report_sha256: 71d52c62eb952a283da19ed68de571f35c37a9e3d63e09e3d62926546ac631c7
   result: pass
-  note: the full suite at the tested commit, 1162 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-12802 are AuthEnvelopedDataTest
+  note: the full suite at the tested commit, 1164 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-59645 are AllTests, OERInputStreamLimitTest
