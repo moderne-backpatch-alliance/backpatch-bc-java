@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.69.1-backpatch-00035
+release: 1.69.1-backpatch-00036
 baseline: v1.69+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -286,12 +286,20 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bctls-jdk15on
-    note: New in this release; adapted onto 1.69; fixed at 1.69.1-backpatch-00035 (backpatch-bc-java@7ebd945).
+    note: Carried from 1.69.1-backpatch-00035.
+  - cve: CVE-2024-30171
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/8767f0b2a5ae15d5e5ae1b868fa92e1753a4b317
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2024-30171
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/compare/c2691cf~1...d1bf33a
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bctls-jdk15on
+    note: New in this release; adapted onto 1.69; fixed at 1.69.1-backpatch-00036 (backpatch-bc-java@c2691cf..d1bf33a).
 tests:
-  commit: 7ebd9458d51ecdccb22df134da8b19e7fe8faf24
+  commit: d1bf33a14796cf1570295e180beefe67f6d63bb8
   command: BC's Ant release build of bctls with the tree's own bcprov and bcutil (JDK 8, -source/-target 1.5, the jdk1.9 classes by OpenJDK 9.0.4 in a linux/amd64 container), then ant junit over every AllTests under tls/src/test/java (bctls-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bctls-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bctls-jdk15on-1.69.1-backpatch-00035-tests.zip
-  report_sha256: 9667cc28948ce2f78ec7f201c55198dd1735797e1463e6667fef3bb86344a57b
+  report: bctls-jdk15on-1.69.1-backpatch-00036-tests.zip
+  report_sha256: 5b49cc497c4db73c9e54b3210d48acaecb7b82e6ebdc3d4274df497ecd6a9df2
   result: pass
-  note: the full suite at the tested commit, 523 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-59646 are DTLSReassemblyLimitTest
+  note: the full suite at the tested commit, 530 tests run, 0 failed, 0 skipped; the regression tests for CVE-2024-30171 are RSAPreMasterSecretDecryptionTest
