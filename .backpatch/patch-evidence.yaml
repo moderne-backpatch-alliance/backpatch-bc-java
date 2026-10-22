@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.70.1-backpatch-00024
+release: 1.70.1-backpatch-00025
 baseline: v1.70+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -197,12 +197,21 @@ fixes:
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
       - org.bouncycastle:bcpkix-jdk15on
-    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00024 (backpatch-bc-java@10f1360).
+    note: Carried from 1.70.1-backpatch-00024.
+  - cve: CVE-2026-13586
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/fa59cc23502f73def89d94374540cc92af647b96
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-13586
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/b08775f
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+      - org.bouncycastle:bcpkix-jdk15on
+    note: New in this release; adapted onto 1.70; fixed at 1.70.1-backpatch-00025 (backpatch-bc-java@b08775f).
 tests:
-  commit: 10f1360612bd20a027fe5da50a02c634ffde1afd
+  commit: b08775f00dd77d5a2c3db7faa7f2720be2044b24
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcprov-jdk15on-1.70.1-backpatch-00024-tests.zip
-  report_sha256: 046521220ee5af609f68da5280ab98c8449a14a91be5c0524b3a8711da842e9b
+  report: bcprov-jdk15on-1.70.1-backpatch-00025-tests.zip
+  report_sha256: 212816d3cf06d0e06999e2e75c47c6ca53a01979744b0c74b17a9f6723a4e473
   result: pass
-  note: the full suite at the tested commit, 1158 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-15055 are AllTests, PBEKDFCostTest, PKCS8Test
+  note: the full suite at the tested commit, 1161 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-13586 are AllTests, PKCS12IterationLimitTest, PfxPduTest, RegressionTest
