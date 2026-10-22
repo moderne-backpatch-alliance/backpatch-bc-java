@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.69.1-backpatch-00028
+release: 1.69.1-backpatch-00029
 baseline: v1.69+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -230,12 +230,20 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcpkix-jdk15on
-    note: New in this release; adapted onto 1.69; fixed at 1.69.1-backpatch-00028 (backpatch-bc-java@1c6a6ed).
+    note: Carried from 1.69.1-backpatch-00028.
+  - cve: CVE-2026-13506
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/ffa28e46d91c0f00cdc3ebebf99667c3b36a41b3
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-13506
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/compare/47472f8~1...899537a
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+    note: New in this release; adapted onto 1.69; fixed at 1.69.1-backpatch-00029 (backpatch-bc-java@47472f8..899537a).
 tests:
-  commit: 1c6a6ed9d0f983d032684ef78875ef75636a08dd
+  commit: 899537a39066609c1916fb8e39a92c572f9c15cb
   command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382) running the tests, macOS aarch64
-  report: bcpkix-jdk15on-1.69.1-backpatch-00028-tests.zip
-  report_sha256: 36f59e4b501cfd8588b3f4f8724bb4638a6e8c878bca1cb45794c7386af714e1
+  report: bcprov-jdk15on-1.69.1-backpatch-00029-tests.zip
+  report_sha256: f8c63391be10acc32818a965400840c26baf1b90073eeb649329be998f2a791b
   result: pass
-  note: the full suite at the tested commit, 1118 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-12802 are AuthEnvelopedDataTest
+  note: the full suite at the tested commit, 1124 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-13506 are ASN1SequenceParserTest
