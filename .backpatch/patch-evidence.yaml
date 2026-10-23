@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.78.1.1-backpatch-00024
+release: 1.78.1.1-backpatch-00025
 baseline: v1.78.1+backpatch.baseline
 fixes:
   - cve: CVE-2025-14813
@@ -200,12 +200,20 @@ fixes:
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
       - org.bouncycastle:bcpkix-jdk18on
-    note: New in this release; adapted onto 1.78.1; fixed at 1.78.1.1-backpatch-00024 (backpatch-bc-java@43f8b27..037fd64).
+    note: Carried from 1.78.1.1-backpatch-00024.
+  - cve: CVE-2026-58059
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/7bf20eea8c1b71a4d3574b75ba20ccf26ffff36b
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-58059
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/compare/d0a9f4d~1...5e59931
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk18on
+    note: New in this release; adapted onto 1.78.1; fixed at 1.78.1.1-backpatch-00025 (backpatch-bc-java@d0a9f4d..5e59931).
 tests:
-  commit: 037fd64ffce13d7a6ca79f6ec11b10c53dabc223
+  commit: 5e599311aedc9fba918a86b3e4df2fad7a8668b7
   command: BC's Gradle 8.5 build (:prov:jar :util:jar :pkix:jar, pack200 --repack on JDK 8), then :core:test :prov:test :util:test :pkix:test, through <alliance>/work/wave2/items/scripts/bc-1.78.1.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382, BC's JDK 8 test toolchain) running the tests, Gradle 8.5 on Azul Zulu 17.0.10, macOS aarch64
-  report: bcprov-jdk18on-1.78.1.1-backpatch-00024-tests.zip
-  report_sha256: 1098b7aeb94c21fd5d23ae0337cd5cb0284c4ae8b89dd15db28a4aa47bd3d6dd
+  report: bcprov-jdk18on-1.78.1.1-backpatch-00025-tests.zip
+  report_sha256: 287c0ad8dd33433b245be9560afacba35a6eedc0b7a3f8d2f29cbb571e837e10
   result: pass
-  note: the full suite at the tested commit, 1442 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-13586 are AllTests, PKCS12IterationLimitTest, PfxPduTest, RegressionTest
+  note: the full suite at the tested commit, 1442 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-58059 are RDNEscapeTest, RegressionTest, X500NameTest
