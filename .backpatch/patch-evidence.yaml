@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.78.1.1-backpatch-00012
+release: 1.78.1.1-backpatch-00013
 baseline: v1.78.1+backpatch.baseline
 fixes:
   - cve: CVE-2025-14813
@@ -101,12 +101,20 @@ fixes:
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
       - org.bouncycastle:bcpkix-jdk18on
-    note: New in this release; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00012 (backpatch-bc-java@6041e40).
+    note: Carried from 1.78.1.1-backpatch-00012.
+  - cve: CVE-2026-12185
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/7bbd7fe5f44132e5b6140a2914435c12430eeb3d
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-12185
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/bbadea4
+    basis: backport
+    artifacts:
+      - org.bouncycastle:bcprov-jdk18on
+    note: New in this release; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00013 (backpatch-bc-java@bbadea4).
 tests:
-  commit: 6041e40013731e24eac087523862bb6534e7ffda
+  commit: bbadea47756195a8111f580f015cc6e8f913c43a
   command: BC's Gradle 8.5 build (:prov:jar :util:jar :pkix:jar, pack200 --repack on JDK 8), then :core:test :prov:test :util:test :pkix:test, through <alliance>/work/wave2/items/scripts/bc-1.78.1.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382, BC's JDK 8 test toolchain) running the tests, Gradle 8.5 on Azul Zulu 17.0.10, macOS aarch64
-  report: bcprov-jdk18on-1.78.1.1-backpatch-00012-tests.zip
-  report_sha256: ff42662ca48ed41e64a2f5615384aec484bcec4796ad67594741d32f9fd6c8e3
+  report: bcprov-jdk18on-1.78.1.1-backpatch-00013-tests.zip
+  report_sha256: 1f809f47f01a9f170a10afd9f141d2f68a41546b65b7bf440c462ad40cae182a
   result: pass
-  note: the full suite at the tested commit, 1409 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-71889 are CheckNameConstraintsTest
+  note: the full suite at the tested commit, 1409 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-12185 are KeyStoreTest
