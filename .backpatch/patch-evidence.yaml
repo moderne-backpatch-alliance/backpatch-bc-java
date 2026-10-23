@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.46.1-backpatch-00007
+release: 1.46.1-backpatch-00008
 baseline: v1.46+backpatch.baseline
 fixes:
   - cve: CVE-2016-1000338
@@ -58,12 +58,20 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: New in this release; adapted onto 1.46; fixed at 1.46.1-backpatch-00007 (backpatch-bc-java@ee923c0).
+    note: Carried from 1.46.1-backpatch-00007.
+  - cve: CVE-2026-71889
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/06dcff2f51037095de126986285c998e3455ab85
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-71889
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/945e5ef
+    basis: backport
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15
+    note: New in this release; ported onto 1.46; fixed at 1.46.1-backpatch-00008 (backpatch-bc-java@945e5ef).
 tests:
-  commit: ee923c07bb0ce06e8c99fdb68ec6028fcc67db33
+  commit: 945e5ef3b58ed9f3f2f8415950bdda02b9634978
   command: javac of Zulu 7u55 (-source/-target 1.5) over the release's source set, then ant junit (Apache Ant 1.9.16) over the ProviderRegressionSuite and the AllTests suites (bc-1.46-suite.xml) on Zulu 6u42 in a linux/amd64 container, through <alliance>/work/wave2/batch-4/green-suites/scripts/bc-1.46.sh suite with TEST_SECURITY=<alliance>/work/wave2/batch-4/green-suites/scripts/bc-1.46-static-provider.security and TEST_RESOURCES=<alliance>/work/wave2/batch-4/green-suites/scripts/bc-1.46-test-resources
   runtime: Azul Zulu (Java 1.6.0_42, Linux x64, with Zulu 7u181's unlimited JCE policy jars) running the tests, Apache Ant 1.9.16, in a linux/amd64 debian:bookworm-slim container on macOS aarch64
-  report: bcprov-jdk15-1.46.1-backpatch-00007-tests.zip
-  report_sha256: 42e4f19cd0972fe1a264e8e17267351e7361b63e090600c6788faa9131bca49a
+  report: bcprov-jdk15-1.46.1-backpatch-00008-tests.zip
+  report_sha256: 2c8af3d71c6a4918ade9a06d077c2fad5aa805c72f1e4ff633c75aff549577b0
   result: pass
-  note: "the full suite at the tested commit, 76 tests run, 0 failed, 0 skipped; test JVMs: Zulu 6u42, the Java 6 of the release's era (CertTest compares BC's certificate hashCode with the JDK's, which changed after 7u79), with unlimited JCE policy jars (12 cipher tests need key sizes the default policy refuses); -Duser.timezone=Australia/Melbourne (CertPathValidatorTest and CertPathBuilderTest build their 2008-09-04 validation date in local time, and their CRLs are valid 04:45-07:31 UTC that day); BC registered as a static provider through -Djava.security.properties (the openssl AllTests' PKCS8 tests ask for provider BC and otherwise find it only when testOpenSSL ran first); ReaderTest's five PEM files (test.pem, eckey.pem, enckey.pem, pkcs7.pem, pkcs8test.pem), which the 1.46 source tree lacks, are bc-java's from its first git import 158b54fba (2013-02-08, a CVS import whose CVS/Entries date them 2005-2010, before 1.46), on the test class path; the 72 openssl test data files the 1.46 tree has are byte-identical to that import's; the regression tests for CVE-2016-1000346 are DHTest"
+  note: "the full suite at the tested commit, 76 tests run, 0 failed, 0 skipped; test JVMs: Zulu 6u42, the Java 6 of the release's era (CertTest compares BC's certificate hashCode with the JDK's, which changed after 7u79), with unlimited JCE policy jars (12 cipher tests need key sizes the default policy refuses); -Duser.timezone=Australia/Melbourne (CertPathValidatorTest and CertPathBuilderTest build their 2008-09-04 validation date in local time, and their CRLs are valid 04:45-07:31 UTC that day); BC registered as a static provider through -Djava.security.properties (the openssl AllTests' PKCS8 tests ask for provider BC and otherwise find it only when testOpenSSL ran first); ReaderTest's five PEM files (test.pem, eckey.pem, enckey.pem, pkcs7.pem, pkcs8test.pem), which the 1.46 source tree lacks, are bc-java's from its first git import 158b54fba (2013-02-08, a CVS import whose CVS/Entries date them 2005-2010, before 1.46), on the test class path; the 72 openssl test data files the 1.46 tree has are byte-identical to that import's; the regression tests for CVE-2026-71889 are PKIXNameConstraintsTest"
