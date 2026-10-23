@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.78.1.1-backpatch-00005
+release: 1.78.1.1-backpatch-00006
 baseline: v1.78.1+backpatch.baseline
 fixes:
   - cve: CVE-2025-14813
@@ -43,12 +43,20 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: New in this release; adapted onto 1.78.1; fixed at 1.78.1.1-backpatch-00005 (backpatch-bc-java@0bfd7ab..388ee8a).
+    note: Carried from 1.78.1.1-backpatch-00005.
+  - cve: CVE-2026-58062
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/add5f822660f3b2c29fd824e2f4095469c42a1c7
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-58062
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/8317b8b
+    basis: backport
+    artifacts:
+      - org.bouncycastle:bcprov-jdk18on
+    note: New in this release; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00006 (backpatch-bc-java@8317b8b).
 tests:
-  commit: 388ee8afcb89d37e50b7ad238e8a772d019585d8
+  commit: 8317b8b08322dc87708e43edc980209fdfd4b628
   command: BC's Gradle 8.5 build (:prov:jar :util:jar :pkix:jar, pack200 --repack on JDK 8), then :core:test :prov:test :util:test :pkix:test, through <alliance>/work/wave2/items/scripts/bc-1.78.1.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382, BC's JDK 8 test toolchain) running the tests, Gradle 8.5 on Azul Zulu 17.0.10, macOS aarch64
-  report: bcprov-jdk18on-1.78.1.1-backpatch-00005-tests.zip
-  report_sha256: 9d92466129ac69ec6a6698f52816664e2a4a0f9d22d5d1ff6775082d6715d5cc
+  report: bcprov-jdk18on-1.78.1.1-backpatch-00006-tests.zip
+  report_sha256: 7999db251b5b0d7844be1a215c670eff02261e11331ed93215c5c8083894bd66
   result: pass
-  note: the full suite at the tested commit, 1404 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-13506 are ASN1SequenceParserTest
+  note: the full suite at the tested commit, 1404 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-58062 are AllTests, PKIXRevocationTest
