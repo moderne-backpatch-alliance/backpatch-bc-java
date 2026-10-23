@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.78.1.1-backpatch-00031
+release: 1.78.1.1-backpatch-00032
 baseline: v1.78.1+backpatch.baseline
 fixes:
   - cve: CVE-2025-14813
@@ -257,12 +257,21 @@ fixes:
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
       - org.bouncycastle:bcpkix-jdk18on
-    note: New in this release; adapted onto 1.78.1; fixed at 1.78.1.1-backpatch-00031 (backpatch-bc-java@5a981b0..56a4ade).
+    note: Carried from 1.78.1.1-backpatch-00031.
+  - cve: CVE-2026-8763
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/b2769e8e7e2ac890de2ee6539cb2ec0450f34d79
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-8763
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/compare/5064e92~1...1e32cc3
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk18on
+      - org.bouncycastle:bcpkix-jdk18on
+    note: New in this release; adapted onto 1.78.1; fixed at 1.78.1.1-backpatch-00032 (backpatch-bc-java@5064e92..1e32cc3).
 tests:
-  commit: 56a4ade79874bd689c5fa5b443d159ae6047f376
+  commit: 1e32cc3d68bf25c744f9c71f0dfcda05835df243
   command: BC's Gradle 8.5 build (:prov:jar :util:jar :pkix:jar, pack200 --repack on JDK 8), then :core:test :prov:test :util:test :pkix:test, through <alliance>/work/wave2/items/scripts/bc-1.78.1.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382, BC's JDK 8 test toolchain) running the tests, Gradle 8.5 on Azul Zulu 17.0.10, macOS aarch64
-  report: bcprov-jdk18on-1.78.1.1-backpatch-00031-tests.zip
-  report_sha256: e47ff00e7499317e43b30c80346a4038cd8390551891fff1bfbb3409d5e5d467
+  report: bcprov-jdk18on-1.78.1.1-backpatch-00032-tests.zip
+  report_sha256: d721dbadc6de1dca3aceaf0c03cf71366ae1ff55fcbe356b1c34d60dca4b5891
   result: pass
-  note: the full suite at the tested commit, 1454 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-17508 are BCFKSStoreTest, PBETest
+  note: the full suite at the tested commit, 1459 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-8763 are PKIXNameConstraintsTest, CertPathValidatorTest, MultiValuedRDNEmailTest, NameConstraintBypassTest, NameConstraintTrailingDotTest
