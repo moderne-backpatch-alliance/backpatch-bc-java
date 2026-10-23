@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.78.1.1-backpatch-00003
+release: 1.78.1.1-backpatch-00004
 baseline: v1.78.1+backpatch.baseline
 fixes:
   - cve: CVE-2025-14813
@@ -26,12 +26,21 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcpkix-jdk18on
-    note: New in this release; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00003 (backpatch-bc-java@40d3142).
+    note: Carried from 1.78.1.1-backpatch-00003.
+  - cve: CVE-2025-8916
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/ff444a479942d88de64004dc82c3ee32a9e9075a
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2025-8916
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/466b6a6
+    basis: backport
+    artifacts:
+      - org.bouncycastle:bcprov-jdk18on
+      - org.bouncycastle:bcpkix-jdk18on
+    note: New in this release; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00004 (backpatch-bc-java@466b6a6).
 tests:
-  commit: 40d314206d235d48683fee1f89e0e9145b452614
+  commit: 466b6a6401c893072ba1897910f9d18394107834
   command: BC's Gradle 8.5 build (:prov:jar :util:jar :pkix:jar, pack200 --repack on JDK 8), then :core:test :prov:test :util:test :pkix:test, through <alliance>/work/wave2/items/scripts/bc-1.78.1.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382, BC's JDK 8 test toolchain) running the tests, Gradle 8.5 on Azul Zulu 17.0.10, macOS aarch64
-  report: bcpkix-jdk18on-1.78.1.1-backpatch-00003-tests.zip
-  report_sha256: 1fc2c15aed0aea1567b0053e217c5a36f5c68a49d3cdeb62c4eef8a2a92221eb
+  report: bcprov-jdk18on-1.78.1.1-backpatch-00004-tests.zip
+  report_sha256: aca84d3bb753b26b317675b3ff92c3da0d180d98092fa6dba98211a17803e736
   result: pass
-  note: the full suite at the tested commit, 1392 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-5588 are AllTests
+  note: the full suite at the tested commit, 1397 tests run, 0 failed, 0 skipped; the regression tests for CVE-2025-8916 are AllTests, CheckNameConstraintsTest
