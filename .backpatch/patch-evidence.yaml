@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.78.1.1-backpatch-00008
+release: 1.78.1.1-backpatch-00009
 baseline: v1.78.1+backpatch.baseline
 fixes:
   - cve: CVE-2025-14813
@@ -67,12 +67,20 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: New in this release; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00008 (backpatch-bc-java@7d9ce8b).
+    note: Carried from 1.78.1.1-backpatch-00008.
+  - cve: CVE-2026-59639
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/99ddc6dcc6782e6a76b0dd587c77e62eb7096ad0
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-59639
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/7cc65bb
+    basis: backport
+    artifacts:
+      - org.bouncycastle:bcpkix-jdk18on
+    note: New in this release; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00009 (backpatch-bc-java@7cc65bb).
 tests:
-  commit: 7d9ce8b2a303b93bc4ff3e4b3a17a910d7f86fd4
+  commit: 7cc65bbb727bceef928085a8ccb4f8ff9c8aa2ea
   command: BC's Gradle 8.5 build (:prov:jar :util:jar :pkix:jar, pack200 --repack on JDK 8), then :core:test :prov:test :util:test :pkix:test, through <alliance>/work/wave2/items/scripts/bc-1.78.1.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382, BC's JDK 8 test toolchain) running the tests, Gradle 8.5 on Azul Zulu 17.0.10, macOS aarch64
-  report: bcprov-jdk18on-1.78.1.1-backpatch-00008-tests.zip
-  report_sha256: 9b9bc4eba5de7a92297ddaba327863df348ce07d10d090dc3862f1d7b8a9c138
+  report: bcpkix-jdk18on-1.78.1.1-backpatch-00009-tests.zip
+  report_sha256: 3c8ea626725fb2c004481880d87ca894bd26191cc1cf2b8ea0b5ad7ca6d11c83
   result: pass
-  note: the full suite at the tested commit, 1404 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-12860 are RSADigestSignerTest
+  note: the full suite at the tested commit, 1405 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-59639 are NewSignedDataTest
