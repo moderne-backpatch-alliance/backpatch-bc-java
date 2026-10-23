@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.78.1.1-backpatch-00030
+release: 1.78.1.1-backpatch-00031
 baseline: v1.78.1+backpatch.baseline
 fixes:
   - cve: CVE-2025-14813
@@ -248,12 +248,21 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: New in this release; adapted onto 1.78.1; fixed at 1.78.1.1-backpatch-00030 (backpatch-bc-java@7ee199b..2b601e0).
+    note: Carried from 1.78.1.1-backpatch-00030.
+  - cve: CVE-2026-17508
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/442393bf187c914b1e66fbed4fab532a1fe06c6a
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-17508
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/compare/5a981b0~1...56a4ade
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk18on
+      - org.bouncycastle:bcpkix-jdk18on
+    note: New in this release; adapted onto 1.78.1; fixed at 1.78.1.1-backpatch-00031 (backpatch-bc-java@5a981b0..56a4ade).
 tests:
-  commit: 2b601e019b7cc6f0c8b21c603ff9bc66039acf69
+  commit: 56a4ade79874bd689c5fa5b443d159ae6047f376
   command: BC's Gradle 8.5 build (:prov:jar :util:jar :pkix:jar, pack200 --repack on JDK 8), then :core:test :prov:test :util:test :pkix:test, through <alliance>/work/wave2/items/scripts/bc-1.78.1.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382, BC's JDK 8 test toolchain) running the tests, Gradle 8.5 on Azul Zulu 17.0.10, macOS aarch64
-  report: bcprov-jdk18on-1.78.1.1-backpatch-00030-tests.zip
-  report_sha256: a39e617da9cd70d853e413df9067c002723c5904d7c2b055c17901ecd018b701
+  report: bcprov-jdk18on-1.78.1.1-backpatch-00031-tests.zip
+  report_sha256: e47ff00e7499317e43b30c80346a4038cd8390551891fff1bfbb3409d5e5d467
   result: pass
-  note: the full suite at the tested commit, 1454 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-18040 are AllTests, FixedWeightSamplerTest, GFCalculatorTest
+  note: the full suite at the tested commit, 1454 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-17508 are BCFKSStoreTest, PBETest
