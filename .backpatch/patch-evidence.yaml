@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.78.1.1-backpatch-00011
+release: 1.78.1.1-backpatch-00012
 baseline: v1.78.1+backpatch.baseline
 fixes:
   - cve: CVE-2025-14813
@@ -92,12 +92,21 @@ fixes:
     artifacts:
       - org.bouncycastle:bcutil-jdk18on
       - org.bouncycastle:bcpkix-jdk18on
-    note: New in this release; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00011 (backpatch-bc-java@e3b48f5..7a93a6a).
+    note: Carried from 1.78.1.1-backpatch-00011.
+  - cve: CVE-2026-71889
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/06dcff2f51037095de126986285c998e3455ab85
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-71889
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/6041e40
+    basis: backport
+    artifacts:
+      - org.bouncycastle:bcprov-jdk18on
+      - org.bouncycastle:bcpkix-jdk18on
+    note: New in this release; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00012 (backpatch-bc-java@6041e40).
 tests:
-  commit: 7a93a6a893da12a1205ff50f6748819e764117bf
+  commit: 6041e40013731e24eac087523862bb6534e7ffda
   command: BC's Gradle 8.5 build (:prov:jar :util:jar :pkix:jar, pack200 --repack on JDK 8), then :core:test :prov:test :util:test :pkix:test, through <alliance>/work/wave2/items/scripts/bc-1.78.1.sh package and suite
   runtime: Azul Zulu (Java 1.8.0_382, BC's JDK 8 test toolchain) running the tests, Gradle 8.5 on Azul Zulu 17.0.10, macOS aarch64
-  report: bcutil-jdk18on-1.78.1.1-backpatch-00011-tests.zip
-  report_sha256: 0444090dbfc9227ba4bc1ddab0fb38a09d78c25c45d52292dfd49de6ffa92dbb
+  report: bcprov-jdk18on-1.78.1.1-backpatch-00012-tests.zip
+  report_sha256: ff42662ca48ed41e64a2f5615384aec484bcec4796ad67594741d32f9fd6c8e3
   result: pass
-  note: the full suite at the tested commit, 1408 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-71888 are NewAuthenticatedDataStreamTest
+  note: the full suite at the tested commit, 1409 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-71889 are CheckNameConstraintsTest
