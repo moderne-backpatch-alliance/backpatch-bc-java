@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.78.1.1-backpatch-00033
+release: 1.78.1.1-backpatch-00034
 baseline: v1.78.1+backpatch.baseline
 fixes:
   - cve: CVE-2025-14813
@@ -10,7 +10,7 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00001.
+    note: Carried from 1.78.1.1-backpatch-00001; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00001 (backpatch-bc-java@05b6625).
   - cve: CVE-2026-0636
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/78cbd92dadaf814cad0057bd6488459e37e97c9e
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-0636
@@ -18,7 +18,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00002.
+    note: Carried from 1.78.1.1-backpatch-00002; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00002 (backpatch-bc-java@418b1c3).
   - cve: CVE-2026-5588
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/ebf4ecadaed88481d58e17853df1ba9bedb46a8c
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-5588
@@ -26,7 +26,7 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcpkix-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00003.
+    note: Carried from 1.78.1.1-backpatch-00003; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00003 (backpatch-bc-java@40d3142).
   - cve: CVE-2025-8916
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/ff444a479942d88de64004dc82c3ee32a9e9075a
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2025-8916
@@ -35,7 +35,7 @@ fixes:
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
       - org.bouncycastle:bcpkix-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00004.
+    note: Carried from 1.78.1.1-backpatch-00004; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00004 (backpatch-bc-java@466b6a6).
   - cve: CVE-2026-13506
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/ffa28e46d91c0f00cdc3ebebf99667c3b36a41b3
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-13506
@@ -43,7 +43,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00005.
+    note: Carried from 1.78.1.1-backpatch-00005; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00005 (backpatch-bc-java@0bfd7ab..388ee8a).
   - cve: CVE-2026-58062
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/add5f822660f3b2c29fd824e2f4095469c42a1c7
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-58062
@@ -51,7 +51,7 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00006.
+    note: Carried from 1.78.1.1-backpatch-00006; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00006 (backpatch-bc-java@8317b8b).
   - cve: CVE-2026-59650
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/daeaae9d7075d04f40812e68671ebf4c777b5148
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-59650
@@ -59,7 +59,7 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00007.
+    note: Carried from 1.78.1.1-backpatch-00007; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00007 (backpatch-bc-java@102b0c9).
   - cve: CVE-2026-12860
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/ea5970ea9b2fb91d763b904692fd21089ca3e396
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-12860
@@ -67,7 +67,7 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00008.
+    note: Carried from 1.78.1.1-backpatch-00008; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00008 (backpatch-bc-java@7d9ce8b).
   - cve: CVE-2026-59639
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/99ddc6dcc6782e6a76b0dd587c77e62eb7096ad0
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-59639
@@ -75,7 +75,7 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcpkix-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00009.
+    note: Carried from 1.78.1.1-backpatch-00009; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00009 (backpatch-bc-java@7cc65bb).
   - cve: CVE-2026-59642
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/2117f316a5a47308f3e569695a6592b16aac0dd7
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-59642
@@ -83,7 +83,7 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcpkix-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00010.
+    note: Carried from 1.78.1.1-backpatch-00010; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00010 (backpatch-bc-java@ce48592).
   - cve: CVE-2026-71888
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/dcb683b32b440f1beb1d2276a34930164281fb95
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-71888
@@ -92,7 +92,7 @@ fixes:
     artifacts:
       - org.bouncycastle:bcutil-jdk18on
       - org.bouncycastle:bcpkix-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00011.
+    note: Carried from 1.78.1.1-backpatch-00011; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00011 (backpatch-bc-java@e3b48f5..7a93a6a).
   - cve: CVE-2026-71889
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/06dcff2f51037095de126986285c998e3455ab85
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-71889
@@ -101,7 +101,7 @@ fixes:
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
       - org.bouncycastle:bcpkix-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00012.
+    note: Carried from 1.78.1.1-backpatch-00012; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00012 (backpatch-bc-java@6041e40).
   - cve: CVE-2026-12185
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/7bbd7fe5f44132e5b6140a2914435c12430eeb3d
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-12185
@@ -109,7 +109,7 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00013.
+    note: Carried from 1.78.1.1-backpatch-00013; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00013 (backpatch-bc-java@bbadea4).
   - cve: CVE-2026-58060
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/311cabbb6fcead7647fec16681423a4439118276
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-58060
@@ -117,7 +117,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00014.
+    note: Carried from 1.78.1.1-backpatch-00014; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00014 (backpatch-bc-java@611bff2).
   - cve: CVE-2026-58061
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/08d675106bb663ddcc6ec0a4af6f6f62f512697b
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-58061
@@ -125,7 +125,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00015.
+    note: Carried from 1.78.1.1-backpatch-00015; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00015 (backpatch-bc-java@c254886).
   - cve: CVE-2026-18036
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/6c936fcb65be9a408ad10d9050af5a832a97d419
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-18036
@@ -133,7 +133,7 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00016.
+    note: Carried from 1.78.1.1-backpatch-00016; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00016 (backpatch-bc-java@e8b209a).
   - cve: CVE-2026-14682
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/84cba7586d99b048cee9fdf81ec6720fd7b50521
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-14682
@@ -141,7 +141,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00017.
+    note: Carried from 1.78.1.1-backpatch-00017; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00017 (backpatch-bc-java@61dacee).
   - cve: CVE-2026-71892
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/be0a7d925c818ef2f338bcec55178b9b6336dfc3
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-71892
@@ -149,7 +149,7 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcpkix-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00018.
+    note: Carried from 1.78.1.1-backpatch-00018; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00018 (backpatch-bc-java@a2cbdfb).
   - cve: CVE-2026-12803
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/697794413ebf7bc5e3fce609a707826ba52981af
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-12803
@@ -157,7 +157,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00019.
+    note: Carried from 1.78.1.1-backpatch-00019; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00019 (backpatch-bc-java@712093c).
   - cve: CVE-2026-12816
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/6d9e4bbaee9409713ada167e5f901554cbb084ac
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-12816
@@ -165,7 +165,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00020.
+    note: Carried from 1.78.1.1-backpatch-00020; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00020 (backpatch-bc-java@40434f1).
   - cve: CVE-2026-59645
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/822b2478b131097368a56290f5728e28dd042989
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-59645
@@ -173,7 +173,7 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcutil-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00021.
+    note: Carried from 1.78.1.1-backpatch-00021; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00021 (backpatch-bc-java@e12c32a).
   - cve: CVE-2026-59647
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/c99d6427d6818d04165b07b45dfda96f2b384c53
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-59647
@@ -182,7 +182,7 @@ fixes:
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
       - org.bouncycastle:bcpkix-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00022.
+    note: Carried from 1.78.1.1-backpatch-00022; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00022 (backpatch-bc-java@18cba25).
   - cve: CVE-2026-15055
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/7ab4ee67a0135950001b29b41a96d8a9a5d3b68b
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-15055
@@ -191,7 +191,7 @@ fixes:
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
       - org.bouncycastle:bcpkix-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00023.
+    note: Carried from 1.78.1.1-backpatch-00023; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00023 (backpatch-bc-java@e5fb241).
   - cve: CVE-2026-13586
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/fa59cc23502f73def89d94374540cc92af647b96
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-13586
@@ -200,7 +200,7 @@ fixes:
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
       - org.bouncycastle:bcpkix-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00024.
+    note: Carried from 1.78.1.1-backpatch-00024; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00024 (backpatch-bc-java@43f8b27..037fd64).
   - cve: CVE-2026-58059
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/7bf20eea8c1b71a4d3574b75ba20ccf26ffff36b
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-58059
@@ -208,7 +208,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00025.
+    note: Carried from 1.78.1.1-backpatch-00025; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00025 (backpatch-bc-java@d0a9f4d..5e59931).
   - cve: CVE-2026-58063
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/81737a56ef4489da1f849cf549df95e338ea6b06
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-58063
@@ -216,7 +216,7 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00026.
+    note: Carried from 1.78.1.1-backpatch-00026; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00026 (backpatch-bc-java@d303770..ffb7f2e).
   - cve: CVE-2026-97873
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/4044aea58992a26a03bad4f21cbda410c995acec
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-97873
@@ -224,7 +224,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00027.
+    note: Carried from 1.78.1.1-backpatch-00027; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00027 (backpatch-bc-java@75ea91a).
   - cve: CVE-2026-5598
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/3e9641ee3ce41b3bd8f7c36120e7b72bae5260ec
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-5598
@@ -232,7 +232,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00028.
+    note: Carried from 1.78.1.1-backpatch-00028; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00028 (backpatch-bc-java@6db4220).
   - cve: CVE-2026-12802
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/0fefa539e6ac5c66e1daee5a13b23d1d4769cc01
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-12802
@@ -240,7 +240,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcpkix-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00029.
+    note: Carried from 1.78.1.1-backpatch-00029; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00029 (backpatch-bc-java@2082417).
   - cve: CVE-2026-18040
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/e7149a7530d8c560b9cd350aa212d665f7e03049
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-18040
@@ -248,7 +248,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00030.
+    note: Carried from 1.78.1.1-backpatch-00030; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00030 (backpatch-bc-java@7ee199b..2b601e0).
   - cve: CVE-2026-17508
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/442393bf187c914b1e66fbed4fab532a1fe06c6a
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-17508
@@ -257,7 +257,7 @@ fixes:
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
       - org.bouncycastle:bcpkix-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00031.
+    note: Carried from 1.78.1.1-backpatch-00031; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00031 (backpatch-bc-java@5a981b0..56a4ade).
   - cve: CVE-2026-8763
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/b2769e8e7e2ac890de2ee6539cb2ec0450f34d79
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-8763
@@ -266,7 +266,7 @@ fixes:
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
       - org.bouncycastle:bcpkix-jdk18on
-    note: Carried from 1.78.1.1-backpatch-00032.
+    note: Carried from 1.78.1.1-backpatch-00032; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00032 (backpatch-bc-java@5064e92..1e32cc3).
   - cve: CVE-2026-59651
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/faf5daa6e9b8460f862afc0af1cc0da365f7d4d2
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-59651
@@ -274,12 +274,11 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
-    note: New in this release; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00033 (backpatch-bc-java@c8ee9c6).
+    note: Carried from 1.78.1.1-backpatch-00033; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00033 (backpatch-bc-java@c8ee9c6).
 tests:
-  commit: c8ee9c649bc4cab28886821910ecf6b5d4a52676
-  command: BC's Gradle 8.5 build (:prov:jar :util:jar :pkix:jar, pack200 --repack on JDK 8), then :core:test :prov:test :util:test :pkix:test, through <alliance>/work/wave2/items/scripts/bc-1.78.1.sh package and suite
-  runtime: Azul Zulu (Java 1.8.0_382, BC's JDK 8 test toolchain) running the tests, Gradle 8.5 on Azul Zulu 17.0.10, macOS aarch64
-  report: bcprov-jdk18on-1.78.1.1-backpatch-00033-tests.zip
-  report_sha256: 791d1c78707985f41c7f4ccb2fbde1ccf1eebc75b778e2f48cb4c7ed3430b9f0
+  commit: 6613ff492e9b2d6ef0fbe5e85e4bab780c84aeb9
+  command: none in this repository
+  runtime: none, no build or test ran for this release
+  report: carried, see the evidence of the release named in the note
   result: pass
-  note: the full suite at the tested commit, 1461 tests run, 0 failed, 0 skipped; the regression tests for CVE-2026-59651 are KeyStoreTest, BKSLegacyStoreTest
+  note: "this release is a tooling update, it carries no new fix, nothing ran here; its test provenance is tooling-2026-11-03-bouncycastle-1.78: a tooling update of moderne-backpatch-alliance/backpatch-bc-java at v1.78.1.1-backpatch-00033, whose .backpatch/patch-evidence.yaml says what ran"
