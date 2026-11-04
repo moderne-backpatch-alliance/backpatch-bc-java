@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.46.1-backpatch-00028
+release: 1.46.1-backpatch-00029
 baseline: v1.46+backpatch.baseline
 fixes:
   - cve: CVE-2016-1000338
@@ -10,7 +10,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00001.
+    note: Carried from 1.46.1-backpatch-00001; ported onto 1.46; fixed at 1.46.1-backpatch-00001 (backpatch-bc-java@4742bfb).
   - cve: CVE-2016-1000342
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/843c2e60f67d71faf81d236f448ebbe56c62c647
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2016-1000342
@@ -18,7 +18,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00002.
+    note: Carried from 1.46.1-backpatch-00002; ported onto 1.46; fixed at 1.46.1-backpatch-00002 (backpatch-bc-java@eb9b10e).
   - cve: CVE-2016-1000341
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/acaac81f96fec91ab45bd0412beaf9c3acd8defa
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2016-1000341
@@ -26,7 +26,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00003.
+    note: Carried from 1.46.1-backpatch-00003; ported onto 1.46; fixed at 1.46.1-backpatch-00003 (backpatch-bc-java@a548b68).
   - cve: CVE-2026-12860
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/ea5970ea9b2fb91d763b904692fd21089ca3e396
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-12860
@@ -34,7 +34,7 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00004.
+    note: Carried from 1.46.1-backpatch-00004; ported onto 1.46; fixed at 1.46.1-backpatch-00004 (backpatch-bc-java@2bf7a29).
   - cve: CVE-2025-8916
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/ff444a479942d88de64004dc82c3ee32a9e9075a
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2025-8916
@@ -42,7 +42,7 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00005.
+    note: Carried from 1.46.1-backpatch-00005; ported onto 1.46; fixed at 1.46.1-backpatch-00005 (backpatch-bc-java@2ecdddb).
   - cve: CVE-2026-59650
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/daeaae9d7075d04f40812e68671ebf4c777b5148
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-59650
@@ -50,7 +50,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00006.
+    note: Carried from 1.46.1-backpatch-00006; ported onto 1.46; fixed at 1.46.1-backpatch-00006 (backpatch-bc-java@2096ba3).
   - cve: CVE-2016-1000346
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/1127131c89021612c6eefa26dbe5714c194e7495
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2016-1000346
@@ -58,7 +58,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00007.
+    note: Carried from 1.46.1-backpatch-00007; ported onto 1.46; fixed at 1.46.1-backpatch-00007 (backpatch-bc-java@ee923c0).
   - cve: CVE-2026-71889
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/06dcff2f51037095de126986285c998e3455ab85
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-71889
@@ -66,7 +66,7 @@ fixes:
     basis: backport
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00008.
+    note: Carried from 1.46.1-backpatch-00008; ported onto 1.46; fixed at 1.46.1-backpatch-00008 (backpatch-bc-java@945e5ef).
   - cve: CVE-2016-1000339
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/413b42f4d770456508585c830cfcde95f9b0e93b
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2016-1000339
@@ -74,7 +74,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00009.
+    note: Carried from 1.46.1-backpatch-00009; ported onto 1.46; fixed at 1.46.1-backpatch-00009 (backpatch-bc-java@62a74e0).
   - cve: CVE-2025-8885
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/3790993df5d28f661a64439a8664343437ed3865
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2025-8885
@@ -82,7 +82,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00010.
+    note: Carried from 1.46.1-backpatch-00010; ported onto 1.46; fixed at 1.46.1-backpatch-00010 (backpatch-bc-java@d94e26a).
   - cve: CVE-2024-29857
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/fee80dd230e7fba132d03a34f1dd1d6aae0d0281
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2024-29857
@@ -90,7 +90,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00011.
+    note: Carried from 1.46.1-backpatch-00011; ported onto 1.46; fixed at 1.46.1-backpatch-00011 (backpatch-bc-java@8c779c5).
   - cve: CVE-2026-14682
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/84cba7586d99b048cee9fdf81ec6720fd7b50521
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-14682
@@ -98,7 +98,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00012.
+    note: Carried from 1.46.1-backpatch-00012; ported onto 1.46; fixed at 1.46.1-backpatch-00012 (backpatch-bc-java@c3c2c33).
   - cve: CVE-2023-33201
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/b00b58873643abc7e834f07e345e0165bb3a1786
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2023-33201
@@ -106,7 +106,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00013.
+    note: Carried from 1.46.1-backpatch-00013; ported onto 1.46; fixed at 1.46.1-backpatch-00013 (backpatch-bc-java@b949ff4..e8c43a8).
   - cve: CVE-2026-0636
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/78cbd92dadaf814cad0057bd6488459e37e97c9e
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-0636
@@ -114,7 +114,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00014.
+    note: Carried from 1.46.1-backpatch-00014; ported onto 1.46; fixed at 1.46.1-backpatch-00014 (backpatch-bc-java@5af50f3..8aeadbc).
   - cve: CVE-2026-58059
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/7bf20eea8c1b71a4d3574b75ba20ccf26ffff36b
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-58059
@@ -122,7 +122,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00015.
+    note: Carried from 1.46.1-backpatch-00015; ported onto 1.46; fixed at 1.46.1-backpatch-00015 (backpatch-bc-java@5b3ff57).
   - cve: CVE-2026-12185
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/7bbd7fe5f44132e5b6140a2914435c12430eeb3d
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-12185
@@ -130,7 +130,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00016.
+    note: Carried from 1.46.1-backpatch-00016; ported onto 1.46; fixed at 1.46.1-backpatch-00016 (backpatch-bc-java@06de9ea).
   - cve: CVE-2026-13586
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/fa59cc23502f73def89d94374540cc92af647b96
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-13586
@@ -138,7 +138,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00017.
+    note: Carried from 1.46.1-backpatch-00017; ported onto 1.46; fixed at 1.46.1-backpatch-00017 (backpatch-bc-java@fae8c4c).
   - cve: CVE-2026-15055
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/7ab4ee67a0135950001b29b41a96d8a9a5d3b68b
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-15055
@@ -146,7 +146,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00018.
+    note: Carried from 1.46.1-backpatch-00018; ported onto 1.46; fixed at 1.46.1-backpatch-00018 (backpatch-bc-java@f66b141).
   - cve: CVE-2026-97873
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/4044aea58992a26a03bad4f21cbda410c995acec
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-97873
@@ -154,7 +154,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00019.
+    note: Carried from 1.46.1-backpatch-00019; ported onto 1.46; fixed at 1.46.1-backpatch-00019 (backpatch-bc-java@aa1162c).
   - cve: CVE-2026-12816
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/6d9e4bbaee9409713ada167e5f901554cbb084ac
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-12816
@@ -162,7 +162,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00020.
+    note: Carried from 1.46.1-backpatch-00020; ported onto 1.46; fixed at 1.46.1-backpatch-00020 (backpatch-bc-java@2f61e91).
   - cve: CVE-2016-1000345
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/21dcb3d9744c83dcf2ff8fcee06dbca7bfa4ef35
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2016-1000345
@@ -170,7 +170,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00021.
+    note: Carried from 1.46.1-backpatch-00021; ported onto 1.46; fixed at 1.46.1-backpatch-00021 (backpatch-bc-java@bdf6148).
   - cve: CVE-2020-26939
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/53c795a48b66b4092ce7d18495cc244f9b908fc7
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2020-26939
@@ -178,7 +178,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00022.
+    note: Carried from 1.46.1-backpatch-00022; ported onto 1.46; fixed at 1.46.1-backpatch-00022 (backpatch-bc-java@17dba8e).
   - cve: CVE-2026-13506
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/ffa28e46d91c0f00cdc3ebebf99667c3b36a41b3
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-13506
@@ -186,7 +186,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00023.
+    note: Carried from 1.46.1-backpatch-00023; ported onto 1.46; fixed at 1.46.1-backpatch-00023 (backpatch-bc-java@763c093).
   - cve: CVE-2013-1624
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/e0d2455fea8a85143c0651bdcb8285620002ff1a
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2013-1624
@@ -194,7 +194,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00024.
+    note: Carried from 1.46.1-backpatch-00024; ported onto 1.46; fixed at 1.46.1-backpatch-00024 (backpatch-bc-java@6335fe4).
   - cve: CVE-2026-8763
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/b2769e8e7e2ac890de2ee6539cb2ec0450f34d79
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-8763
@@ -202,15 +202,15 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00025.
+    note: Carried from 1.46.1-backpatch-00025; ported onto 1.46; fixed at 1.46.1-backpatch-00025 (backpatch-bc-java@ec3a01a..1d4702c).
   - cve: CVE-2018-5382
+    upstream_fix_url: https://repo1.maven.org/maven2/org/bouncycastle/bcprov-jdk15on/1.47/bcprov-jdk15on-1.47-sources.jar
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2018-5382
     patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/83b0047
-    not_applicable_rationale: a provider-developed fix; no upstream-authored code to credit
-    basis: original
+    basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00026.
+    note: Carried from 1.46.1-backpatch-00026; ported onto 1.46; fixed at 1.46.1-backpatch-00026 (backpatch-bc-java@83b0047).
   - cve: CVE-2026-59651
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/faf5daa6e9b8460f862afc0af1cc0da365f7d4d2
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-59651
@@ -218,7 +218,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: Carried from 1.46.1-backpatch-00027.
+    note: Carried from 1.46.1-backpatch-00027; ported onto 1.46; fixed at 1.46.1-backpatch-00027 (backpatch-bc-java@4231949).
   - cve: CVE-2015-7940
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/5cb2f0578e6ec8f0d67e59d05d8c4704d8e05f83
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2015-7940
@@ -226,12 +226,11 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15
-    note: New in this release; adapted onto 1.46; fixed at 1.46.1-backpatch-00028 (backpatch-bc-java@6a39fea..1fe5da5).
+    note: Carried from 1.46.1-backpatch-00028; ported onto 1.46; fixed at 1.46.1-backpatch-00028 (backpatch-bc-java@6a39fea..1fe5da5).
 tests:
-  commit: 1fe5da5ea01ea7aeb09b4cad982ced818d639082
-  command: javac of Zulu 7u55 (-source/-target 1.5) over the release's source set, then ant junit (Apache Ant 1.9.16) over the ProviderRegressionSuite and the AllTests suites (bc-1.46-suite.xml) on Zulu 6u42 in a linux/amd64 container, through <alliance>/work/wave2/batch-4/green-suites/scripts/bc-1.46.sh suite with TEST_SECURITY=<alliance>/work/wave2/batch-4/green-suites/scripts/bc-1.46-static-provider.security and TEST_RESOURCES=<alliance>/work/wave2/batch-4/green-suites/scripts/bc-1.46-test-resources
-  runtime: Azul Zulu (Java 1.6.0_42, Linux x64, with Zulu 7u181's unlimited JCE policy jars) running the tests, Apache Ant 1.9.16, in a linux/amd64 debian:bookworm-slim container on macOS aarch64
-  report: bcprov-jdk15-1.46.1-backpatch-00028-tests.zip
-  report_sha256: ebe7595abe0a25370b1af4aecffc6a51663ce20738bff41bcbba3187c4f6def4
+  commit: 6c680172524dc72c0de48ff69fa2a33ab19cb5ba
+  command: none in this repository
+  runtime: none, no build or test ran for this release
+  report: carried, see the evidence of the release named in the note
   result: pass
-  note: "the full suite at the tested commit, 76 tests run, 0 failed, 0 skipped; test JVMs: Zulu 6u42, the Java 6 of the release's era (CertTest compares BC's certificate hashCode with the JDK's, which changed after 7u79), with unlimited JCE policy jars (12 cipher tests need key sizes the default policy refuses); -Duser.timezone=Australia/Melbourne (CertPathValidatorTest and CertPathBuilderTest build their 2008-09-04 validation date in local time, and their CRLs are valid 04:45-07:31 UTC that day); BC registered as a static provider through -Djava.security.properties (the openssl AllTests' PKCS8 tests ask for provider BC and otherwise find it only when testOpenSSL ran first); ReaderTest's five PEM files (test.pem, eckey.pem, enckey.pem, pkcs7.pem, pkcs8test.pem), which the 1.46 source tree lacks, are bc-java's from its first git import 158b54fba (2013-02-08, a CVS import whose CVS/Entries date them 2005-2010, before 1.46), on the test class path; the 72 openssl test data files the 1.46 tree has are byte-identical to that import's; the regression tests for CVE-2015-7940 are ECEncodingTest"
+  note: "this release is a tooling update, it carries no new fix, nothing ran here; its test provenance is tooling-2026-11-03-bouncycastle-1.46: a tooling update of moderne-backpatch-alliance/backpatch-bc-java at v1.46.1-backpatch-00028, whose .backpatch/patch-evidence.yaml says what ran"
