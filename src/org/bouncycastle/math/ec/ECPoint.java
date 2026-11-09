@@ -28,6 +28,38 @@ public abstract class ECPoint
         this.y = y;
     }
     
+    protected boolean satisfiesCofactor()
+    {
+        BigInteger h = curve.getCofactor();
+        return h == null || h.equals(ECConstants.ONE) || !ECAlgorithms.referenceMultiply(this, h).isInfinity();
+    }
+
+    protected abstract boolean satisfiesCurveEquation();
+
+    public boolean isValid()
+    {
+        if (isInfinity())
+        {
+            return true;
+        }
+
+        ECCurve curve = getCurve();
+        if (curve != null)
+        {
+            if (!satisfiesCurveEquation())
+            {
+                return false;
+            }
+
+            if (!satisfiesCofactor())
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public ECCurve getCurve()
     {
         return curve;
@@ -149,7 +181,7 @@ public abstract class ECPoint
         }
 
         assertECMultiplier();
-        return this.multiplier.multiply(this, k, preCompInfo);
+        return ECAlgorithms.validatePoint(this.multiplier.multiply(this, k, preCompInfo));
     }
 
     /**
@@ -190,6 +222,14 @@ public abstract class ECPoint
             this.withCompression = withCompression;
         }
          
+        protected boolean satisfiesCurveEquation()
+        {
+            ECFieldElement X = this.x, Y = this.y, A = curve.getA(), B = curve.getB();
+            ECFieldElement lhs = Y.square();
+            ECFieldElement rhs = X.square().add(A).multiply(X).add(B);
+            return lhs.equals(rhs);
+        }
+
         /**
          * return the field element encoded with point compression. (S 4.3.6)
          */
@@ -374,6 +414,14 @@ public abstract class ECPoint
         /* (non-Javadoc)
          * @see org.bouncycastle.math.ec.ECPoint#getEncoded()
          */
+        protected boolean satisfiesCurveEquation()
+        {
+            ECFieldElement X = this.x, Y = this.y, A = curve.getA(), B = curve.getB();
+            ECFieldElement lhs = Y.add(X).multiply(Y);
+            ECFieldElement rhs = X.add(A).multiply(X.square()).add(B);
+            return lhs.equals(rhs);
+        }
+
         public byte[] getEncoded()
         {
             if (this.isInfinity()) 

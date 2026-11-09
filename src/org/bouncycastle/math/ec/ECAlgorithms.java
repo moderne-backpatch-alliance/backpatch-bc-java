@@ -19,11 +19,11 @@ public class ECAlgorithms
             ECCurve.F2m f2mCurve = (ECCurve.F2m)c;
             if (f2mCurve.isKoblitz())
             {
-                return P.multiply(a).add(Q.multiply(b));
+                return ECAlgorithms.validatePoint(P.multiply(a).add(Q.multiply(b)));
             }
         }
 
-        return implShamirsTrick(P, a, Q, b);
+        return ECAlgorithms.validatePoint(implShamirsTrick(P, a, Q, b));
     }
 
     /*
@@ -53,7 +53,50 @@ public class ECAlgorithms
             throw new IllegalArgumentException("P and Q must be on same curve");
         }
 
-        return implShamirsTrick(P, k, Q, l);
+        return ECAlgorithms.validatePoint(implShamirsTrick(P, k, Q, l));
+    }
+
+    /**
+     * Simple shift-and-add multiplication. Serves as reference implementation
+     * to verify (possibly faster) implementations, and for very small scalars.
+     * 
+     * @param p
+     *            The point to multiply.
+     * @param k
+     *            The multiplier.
+     * @return The result of the point multiplication <code>kP</code>.
+     */
+    public static ECPoint referenceMultiply(ECPoint p, BigInteger k)
+    {
+        BigInteger x = k.abs();
+        ECPoint q = p.getCurve().getInfinity();
+        int t = x.bitLength();
+        if (t > 0)
+        {
+            if (x.testBit(0))
+            {
+                q = p;
+            }
+            for (int i = 1; i < t; i++)
+            {
+                p = p.twice();
+                if (x.testBit(i))
+                {
+                    q = q.add(p);
+                }
+            }
+        }
+        return k.signum() < 0 ? q.negate() : q;
+    }
+
+    public static ECPoint validatePoint(ECPoint p)
+    {
+        if (!p.isValid())
+        {
+            throw new IllegalArgumentException("Invalid point");
+        }
+
+        return p;
     }
 
     private static ECPoint implShamirsTrick(ECPoint P, BigInteger k,

@@ -16,9 +16,24 @@ public abstract class ECCurve
 
     public abstract ECPoint createPoint(BigInteger x, BigInteger y, boolean withCompression);
 
+    public ECPoint validatePoint(BigInteger x, BigInteger y, boolean withCompression)
+    {
+        ECPoint p = createPoint(x, y, withCompression);
+        if (!p.isValid())
+        {
+            throw new IllegalArgumentException("Invalid point coordinates");
+        }
+        return p;
+    }
+
     public abstract ECPoint decodePoint(byte[] encoded);
 
     public abstract ECPoint getInfinity();
+
+    public BigInteger getCofactor()
+    {
+        return null;
+    }
 
     public ECFieldElement getA()
     {
@@ -130,9 +145,7 @@ public abstract class ECCurve
                 System.arraycopy(encoded, 1, xEnc, 0, xEnc.length);
                 System.arraycopy(encoded, xEnc.length + 1, yEnc, 0, yEnc.length);
 
-                p = new ECPoint.Fp(this,
-                        new ECFieldElement.Fp(this.q, new BigInteger(1, xEnc)),
-                        new ECFieldElement.Fp(this.q, new BigInteger(1, yEnc)));
+                p = validatePoint(new BigInteger(1, xEnc), new BigInteger(1, yEnc), false);
                 break;
             default:
                 throw new RuntimeException("Invalid point encoding 0x" + Integer.toString(encoded[0], 16));
@@ -445,11 +458,7 @@ public abstract class ECCurve
                 System.arraycopy(encoded, 1, xEnc, 0, xEnc.length);
                 System.arraycopy(encoded, xEnc.length + 1, yEnc, 0, yEnc.length);
 
-                p = new ECPoint.F2m(this,
-                    new ECFieldElement.F2m(this.m, this.k1, this.k2, this.k3,
-                        new BigInteger(1, xEnc)),
-                    new ECFieldElement.F2m(this.m, this.k1, this.k2, this.k3,
-                        new BigInteger(1, yEnc)), false);
+                p = validatePoint(new BigInteger(1, xEnc), new BigInteger(1, yEnc), false);
                 break;
 
             default:
@@ -551,7 +560,12 @@ public abstract class ECCurve
                 yp = xp.multiply(z);
             }
             
-            return new ECPoint.F2m(this, xp, yp);
+            ECPoint p = new ECPoint.F2m(this, xp, yp);
+            if (!p.satisfiesCofactor())
+            {
+                throw new IllegalArgumentException("Invalid point");
+            }
+            return p;
         }
         
         /**
@@ -658,6 +672,11 @@ public abstract class ECCurve
         public BigInteger getN()
         {
             return n;
+        }
+
+        public BigInteger getCofactor()
+        {
+            return h;
         }
 
         public BigInteger getH()

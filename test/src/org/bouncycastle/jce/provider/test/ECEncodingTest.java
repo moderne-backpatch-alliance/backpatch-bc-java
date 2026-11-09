@@ -1,5 +1,20 @@
 package org.bouncycastle.jce.provider.test;
 
+import java.security.KeyFactory;
+import java.security.SecureRandom;
+import java.security.spec.ECGenParameterSpec;
+import java.security.spec.ECPrivateKeySpec;
+import java.security.spec.ECPublicKeySpec;
+import org.bouncycastle.asn1.sec.SECNamedCurves;
+import org.bouncycastle.crypto.agreement.ECMQVBasicAgreement;
+import org.bouncycastle.crypto.params.ECDomainParameters;
+import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
+import org.bouncycastle.crypto.params.ECPublicKeyParameters;
+import org.bouncycastle.crypto.params.MQVPrivateParameters;
+import org.bouncycastle.crypto.params.MQVPublicParameters;
+import org.bouncycastle.math.ec.ECPoint;
+import org.bouncycastle.util.Arrays;
+import javax.crypto.KeyAgreement;
 import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
 import java.security.InvalidKeyException;
@@ -75,9 +90,172 @@ public class ECEncodingTest
         ks[2] = k1;
     }
     
+    private void testDecodeRejectsPointOffCurve()
+    {
+        String[] curves = { "secp256r1", "sect163k1" };
+        for (int i = 0; i != curves.length; i++)
+        {
+            X9ECParameters params = SECNamedCurves.getByName(curves[i]);
+            ECCurve curve = params.getCurve();
+            ECPoint g = params.getG();
+
+            byte[] enc = uncompressed(curve.getFieldSize(), g);
+            if (!curve.decodePoint(enc).equals(g))
+            {
+                fail(curves[i] + ": generator did not decode");
+            }
+
+            byte[] bad = (byte[])enc.clone();
+            bad[bad.length - 1] ^= 0x01;
+            try
+            {
+                curve.decodePoint(bad);
+                fail(curves[i] + ": point off the curve decoded");
+            }
+            catch (IllegalArgumentException e)
+            {
+                // expected
+            }
+
+            byte[] hybrid = (byte[])enc.clone();
+            hybrid[0] = (byte)(0x06 | (g.getY().toBigInteger().testBit(0) ? 1 : 0));
+            if (!curve.decodePoint(hybrid).equals(g))
+            {
+                fail(curves[i] + ": hybrid generator did not decode");
+            }
+            hybrid[hybrid.length - 1] ^= 0x01;
+            try
+            {
+                curve.decodePoint(hybrid);
+                fail(curves[i] + ": hybrid point off the curve decoded");
+            }
+            catch (IllegalArgumentException e)
+            {
+                // expected
+            }
+        }
+    }
+
+    private void testDecodeRejectsCofactorPoint()
+    {
+        ECCurve curve = SECNamedCurves.getByName("sect163k1").getCurve();
+        int len = (curve.getFieldSize() + 7) / 8;
+
+        byte[] compressed = new byte[1 + len];
+        compressed[0] = 0x02;
+        byte[] uncompressed = new byte[1 + 2 * len];
+        uncompressed[0] = 0x04;
+        uncompressed[uncompressed.length - 1] = 0x01;
+
+        byte[][] encodings = { compressed, uncompressed };
+        for (int i = 0; i != encodings.length; i++)
+        {
+            try
+            {
+                curve.decodePoint(encodings[i]);
+                fail("sect163k1: point of order 2 decoded, encoding " + i);
+            }
+            catch (IllegalArgumentException e)
+            {
+                // expected
+            }
+        }
+    }
+
+    private void testAgreementRejectsPointOffCurve()
+        throws Exception
+    {
+        BigInteger d = new BigInteger("2b8e0a4e2d3a1c5f6e7d8c9b0a1f2e3d4c5b6a79881726354433221100ffeedd", 16);
+        String[] curves = { "secp256r1", "sect163k1" };
+        String[] agreements = { "ECDH", "ECDHC" };
+        KeyFactory kf = KeyFactory.getInstance("EC", "BC");
+        for (int i = 0; i != curves.length; i++)
+        {
+            KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC", "BC");
+            kpg.initialize(new ECGenParameterSpec(curves[i]), new SecureRandom());
+            KeyPair own = kpg.generateKeyPair();
+            KeyPair peer = kpg.generateKeyPair();
+            java.security.spec.ECParameterSpec spec = ((java.security.interfaces.ECPublicKey)peer.getPublic()).getParams();
+            PublicKey ownPub = kf.generatePublic(new ECPublicKeySpec(((java.security.interfaces.ECPublicKey)own.getPublic()).getW(), spec));
+            PublicKey peerPub = kf.generatePublic(new ECPublicKeySpec(((java.security.interfaces.ECPublicKey)peer.getPublic()).getW(), spec));
+
+            PrivateKey priv = kf.generatePrivate(new ECPrivateKeySpec(d.mod(spec.getOrder()), spec));
+            java.security.spec.ECPoint g = spec.getGenerator();
+            PublicKey bad = kf.generatePublic(new ECPublicKeySpec(
+                new java.security.spec.ECPoint(g.getAffineX(), g.getAffineY().flipBit(0)), spec));
+
+            for (int j = 0; j != agreements.length; j++)
+            {
+                KeyAgreement ka = KeyAgreement.getInstance(agreements[j], "BC");
+                ka.init(own.getPrivate());
+                ka.doPhase(peerPub, true);
+                byte[] secret = ka.generateSecret();
+                ka.init(peer.getPrivate());
+                ka.doPhase(ownPub, true);
+                if (!Arrays.areEqual(secret, ka.generateSecret()))
+                {
+                    fail(curves[i] + " " + agreements[j] + ": valid keys did not agree");
+                }
+
+                ka.init(priv);
+                try
+                {
+                    ka.doPhase(bad, true);
+                    ka.generateSecret();
+                    fail(curves[i] + " " + agreements[j] + ": public point off the curve accepted");
+                }
+                catch (IllegalArgumentException e)
+                {
+                    // expected
+                }
+            }
+        }
+
+        X9ECParameters x9 = SECNamedCurves.getByName("secp256r1");
+        ECDomainParameters dp = new ECDomainParameters(x9.getCurve(), x9.getG(), x9.getN(), x9.getH());
+        ECMQVBasicAgreement mqv = new ECMQVBasicAgreement();
+        mqv.init(new MQVPrivateParameters(new ECPrivateKeyParameters(d, dp),
+            new ECPrivateKeyParameters(d.add(BigInteger.ONE), dp)));
+        ECPublicKeyParameters staticPub = new ECPublicKeyParameters(x9.getG().multiply(d.add(BigInteger.valueOf(2))), dp);
+        ECPublicKeyParameters ephemeralPub = new ECPublicKeyParameters(x9.getG().multiply(d.add(BigInteger.valueOf(3))), dp);
+        ECPublicKeyParameters offCurve = new ECPublicKeyParameters(x9.getCurve().createPoint(
+            x9.getG().getX().toBigInteger(), x9.getG().getY().toBigInteger().flipBit(0), false), dp);
+        mqv.calculateAgreement(new MQVPublicParameters(staticPub, ephemeralPub));
+        try
+        {
+            mqv.calculateAgreement(new MQVPublicParameters(staticPub, offCurve));
+            fail("secp256r1 ECMQV: ephemeral public point off the curve accepted");
+        }
+        catch (IllegalArgumentException e)
+        {
+            // expected
+        }
+    }
+
+    private static byte[] uncompressed(int fieldSize, ECPoint p)
+    {
+        int len = (fieldSize + 7) / 8;
+        byte[] enc = new byte[1 + 2 * len];
+        enc[0] = 0x04;
+        copyUnsigned(p.getX().toBigInteger(), enc, 1, len);
+        copyUnsigned(p.getY().toBigInteger(), enc, 1 + len, len);
+        return enc;
+    }
+
+    private static void copyUnsigned(BigInteger v, byte[] out, int off, int len)
+    {
+        byte[] b = v.toByteArray();
+        int skip = (b.length > len) ? b.length - len : 0;
+        System.arraycopy(b, skip, out, off + len - (b.length - skip), b.length - skip);
+    }
+
     public void performTest()
         throws Exception
     {
+        testDecodeRejectsPointOffCurve();
+        testDecodeRejectsCofactorPoint();
+        testAgreementRejectsPointOffCurve();
+
         byte[] ecParams = Hex.decode("3081C8020101302806072A8648CE3D0101021D00D7C134AA264366862A18302575D1D787B09F075797DA89F57EC8C0FF303C041C68A5E62CA9CE6C1C299803A6C1530B514E182AD8B0042A59CAD29F43041C2580F63CCFE44138870713B1A92369E33E2135D266DBB372386C400B0439040D9029AD2C7E5CF4340823B2A87DC68C9E4CE3174C1E6EFDEE12C07D58AA56F772C0726F24C6B89E4ECDAC24354B9E99CAA3F6D3761402CD021D00D7C134AA264366862A18302575D0FB98D116BC4B6DDEBCA3A5A7939F020101");
         testParams(ecParams, true);
         
