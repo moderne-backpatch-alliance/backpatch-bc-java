@@ -5,6 +5,7 @@ import java.io.IOException;
 
 import org.bouncycastle.crypto.Digest;
 import org.bouncycastle.crypto.Mac;
+import org.bouncycastle.crypto.digests.LongDigest;
 import org.bouncycastle.crypto.macs.HMac;
 import org.bouncycastle.crypto.params.KeyParameter;
 import org.bouncycastle.util.Arrays;
@@ -19,6 +20,8 @@ public class TlsMac
     protected long seqNo;
     protected byte[] secret;
     protected Mac mac;
+    protected int digestBlockSize;
+    protected int digestOverhead;
 
     /**
      * Generate a new instance of an TlsMac.
@@ -38,11 +41,21 @@ public class TlsMac
 
         this.secret = Arrays.clone(param.getKey());
 
+        this.digestBlockSize = 64;
+        this.digestOverhead = 8;
+
         boolean isTls = context.getServerVersion().getFullVersion() >= ProtocolVersion.TLSv10.getFullVersion();
 
         if (isTls)
         {
             this.mac = new HMac(digest);
+
+            // TODO This should check the actual algorithm, not assume the engine type
+            if (digest instanceof LongDigest)
+            {
+                this.digestBlockSize = 128;
+                this.digestOverhead = 16;
+            }
         }
         else
         {
@@ -139,18 +152,15 @@ public class TlsMac
         // ...but ensure a constant number of complete digest blocks are processed (per 'fullLength')
         if (isTls)
         {
-            // TODO Currently all TLS digests use a block size of 64, a suffix (length field) of 8, and padding (1+)
-            int db = 64, ds = 8;
-
             int L1 = 13 + fullLength;
             int L2 = 13 + len;
 
             // How many extra full blocks do we need to calculate?
-            int extra = ((L1 + ds) / db) - ((L2 + ds) / db);
+            int extra = getDigestBlockCount(L1) - getDigestBlockCount(L2);
 
             while (--extra >= 0)
             {
-                mac.update(dummyData, 0, db);
+                mac.update(dummyData, 0, digestBlockSize);
             }
     
             // One more byte in case the implementation is "lazy" about processing blocks
@@ -159,5 +169,11 @@ public class TlsMac
         }
 
         return result;
+    }
+
+    private int getDigestBlockCount(int inputLength)
+    {
+        // NOTE: This calculation assumes a minimum of 1 pad byte
+        return (inputLength + digestOverhead) / digestBlockSize;
     }
 }
