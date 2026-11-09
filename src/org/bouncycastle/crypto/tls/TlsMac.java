@@ -41,8 +41,17 @@ public class TlsMac
 
         this.secret = Arrays.clone(param.getKey());
 
-        this.digestBlockSize = 64;
-        this.digestOverhead = 8;
+        // TODO This should check the actual algorithm, not rely on the engine type
+        if (digest instanceof LongDigest)
+        {
+            this.digestBlockSize = 128;
+            this.digestOverhead = 16;
+        }
+        else
+        {
+            this.digestBlockSize = 64;
+            this.digestOverhead = 8;
+        }
 
         boolean isTls = context.getServerVersion().getFullVersion() >= ProtocolVersion.TLSv10.getFullVersion();
 
@@ -50,16 +59,21 @@ public class TlsMac
         {
             this.mac = new HMac(digest);
 
-            // TODO This should check the actual algorithm, not assume the engine type
-            if (digest instanceof LongDigest)
-            {
-                this.digestBlockSize = 128;
-                this.digestOverhead = 16;
-            }
+            // NOTE: The input pad for HMAC is always a full digest block
         }
         else
         {
             this.mac = new SSL3Mac(digest);
+
+            // TODO This should check the actual algorithm, not assume based on the digest size
+            if (digest.getDigestSize() == 20)
+            {
+                /*
+                 * NOTE: When SHA-1 is used with the SSL 3.0 MAC, the secret + input pad is not
+                 * digest block-aligned.
+                 */
+                this.digestOverhead = 4;
+            }
         }
 
         this.mac.init(param);
@@ -150,23 +164,19 @@ public class TlsMac
         boolean isTls = serverVersion.getFullVersion() >= ProtocolVersion.TLSv10.getFullVersion();
 
         // ...but ensure a constant number of complete digest blocks are processed (per 'fullLength')
-        if (isTls)
+        int headerLength = isTls ? 13 : 11;
+
+        // How many extra full blocks do we need to calculate?
+        int extra = getDigestBlockCount(headerLength + fullLength) - getDigestBlockCount(headerLength + len);
+
+        while (--extra >= 0)
         {
-            int L1 = 13 + fullLength;
-            int L2 = 13 + len;
-
-            // How many extra full blocks do we need to calculate?
-            int extra = getDigestBlockCount(L1) - getDigestBlockCount(L2);
-
-            while (--extra >= 0)
-            {
-                mac.update(dummyData, 0, digestBlockSize);
-            }
-    
-            // One more byte in case the implementation is "lazy" about processing blocks
-            mac.update(dummyData[0]);
-            mac.reset();
+            mac.update(dummyData, 0, digestBlockSize);
         }
+
+        // One more byte in case the implementation is "lazy" about processing blocks
+        mac.update(dummyData[0]);
+        mac.reset();
 
         return result;
     }
