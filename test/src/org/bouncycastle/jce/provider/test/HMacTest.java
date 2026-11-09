@@ -13,7 +13,9 @@ import javax.crypto.spec.RC5ParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.bouncycastle.crypto.BlockCipher;
+import org.bouncycastle.crypto.Digest;
 import org.bouncycastle.crypto.digests.SHA1Digest;
+import org.bouncycastle.crypto.digests.SHA384Digest;
 import org.bouncycastle.crypto.engines.AESEngine;
 import org.bouncycastle.crypto.modes.CBCBlockCipher;
 import org.bouncycastle.crypto.params.KeyParameter;
@@ -254,6 +256,176 @@ public class HMacTest
         }
     }
 
+    // Every valid record of one length, and one with a wrong pad byte, must cost the same number of digest compressions.
+    private void testTlsRecordMacConstantTimeAllLengths(String name, final ProtocolVersion version, Digest writeDigest, Digest readDigest,
+        BlockCounting counting, int macKeyLength, int recordLength)
+        throws Exception
+    {
+        final SecurityParameters securityParameters = new SecurityParameters();
+        setField(SecurityParameters.class, securityParameters, "masterSecret", new byte[48]);
+        setField(SecurityParameters.class, securityParameters, "clientRandom", new byte[32]);
+        setField(SecurityParameters.class, securityParameters, "serverRandom", new byte[32]);
+        TlsClientContext context = new TlsClientContext()
+        {
+            private final SecureRandom random = new SecureRandom();
+            private Object userObject;
+
+            public SecureRandom getSecureRandom()
+            {
+                return random;
+            }
+
+            public SecurityParameters getSecurityParameters()
+            {
+                return securityParameters;
+            }
+
+            public ProtocolVersion getClientVersion()
+            {
+                return version;
+            }
+
+            public ProtocolVersion getServerVersion()
+            {
+                return version;
+            }
+
+            public Object getUserObject()
+            {
+                return userObject;
+            }
+
+            public void setUserObject(Object userObject)
+            {
+                this.userObject = userObject;
+            }
+        };
+
+        TlsBlockCipher tlsCipher = new TlsBlockCipher(context, new CBCBlockCipher(new AESEngine()),
+            new CBCBlockCipher(new AESEngine()), writeDigest, readDigest, 16);
+
+        byte[] key = Hex.decode("000102030405060708090a0b0c0d0e0f");
+        byte[] iv = Hex.decode("0f0e0d0c0b0a09080706050403020100");
+        byte[] macKey = new byte[macKeyLength];
+        TlsMac writeMac = new TlsMac(context, writeDigest, macKey, 0, macKey.length);
+        TlsMac readMac = new TlsMac(context, (Digest)counting, macKey, 0, macKey.length);
+        int macLength = writeMac.getSize();
+
+        // SSL 3.0 padding is shorter than one cipher block
+        int minDataLen = version.getFullVersion() < ProtocolVersion.TLSv10.getFullVersion() ? Math.max(0, recordLength - macLength - 16) : 0;
+        int expected = -1;
+        for (int dataLen = minDataLen; dataLen <= recordLength - macLength; dataLen++)
+        {
+            boolean badPad = dataLen == recordLength - macLength;
+            byte[] data = new byte[badPad ? 0 : dataLen];
+            byte[] mac = writeMac.calculateMac(ContentType.application_data, data, 0, data.length);
+            byte[] record = new byte[recordLength];
+            System.arraycopy(data, 0, record, 0, data.length);
+            System.arraycopy(mac, 0, record, data.length, mac.length);
+            int pad = record.length - data.length - mac.length - 1;
+            for (int i = data.length + mac.length; i != record.length; i++)
+            {
+                record[i] = (byte)pad;
+            }
+            if (badPad)
+            {
+                record[record.length - 1] = (byte)(pad - 1);
+            }
+
+            BlockCipher enc = new CBCBlockCipher(new AESEngine());
+            enc.init(true, new ParametersWithIV(new KeyParameter(key), iv));
+            for (int i = 0; i < record.length; i += 16)
+            {
+                enc.processBlock(record, i, record, i);
+            }
+
+            setField(TlsBlockCipher.class, tlsCipher, "readMac", readMac);
+            BlockCipher dec = new CBCBlockCipher(new AESEngine());
+            dec.init(false, new ParametersWithIV(new KeyParameter(key), iv));
+            setField(TlsBlockCipher.class, tlsCipher, "decryptCipher", dec);
+
+            counting.resetBlocks();
+            try
+            {
+                byte[] plain = tlsCipher.decodeCiphertext(ContentType.application_data, record, 0, record.length);
+                if (badPad || !Arrays.areEqual(data, plain))
+                {
+                    fail(name + " record with " + dataLen + " data bytes decoded wrongly");
+                }
+            }
+            catch (TlsFatalAlert e)
+            {
+                if (!badPad)
+                {
+                    fail(name + " record with " + dataLen + " data bytes refused");
+                }
+            }
+            if (expected < 0)
+            {
+                expected = counting.getBlocks();
+                continue;
+            }
+            else if (counting.getBlocks() != expected)
+            {
+                fail(name + ": " + counting.getBlocks() + " digest compressions for " + (badPad ? "a wrong pad" : dataLen + " data bytes")
+                    + ", " + expected + " for " + minDataLen + " data bytes, in " + recordLength + "-byte records");
+            }
+        }
+    }
+
+    private interface BlockCounting
+    {
+        int getBlocks();
+
+        void resetBlocks();
+    }
+
+    private static class CountingSHA1Digest2
+        extends SHA1Digest
+        implements BlockCounting
+    {
+        private int blocks;
+
+        protected void processBlock()
+        {
+            blocks++;
+            super.processBlock();
+        }
+
+        public int getBlocks()
+        {
+            return blocks;
+        }
+
+        public void resetBlocks()
+        {
+            blocks = 0;
+        }
+    }
+
+    private static class CountingSHA384Digest
+        extends SHA384Digest
+        implements BlockCounting
+    {
+        private int blocks;
+
+        protected void processBlock()
+        {
+            blocks++;
+            super.processBlock();
+        }
+
+        public int getBlocks()
+        {
+            return blocks;
+        }
+
+        public void resetBlocks()
+        {
+            blocks = 0;
+        }
+    }
+
     private static void setField(Class cls, Object target, String name, Object value)
         throws Exception
     {
@@ -278,6 +450,12 @@ public class HMacTest
         throws Exception
     {
         testTlsRecordMacConstantTime();
+        testTlsRecordMacConstantTimeAllLengths("TLS 1.0 SHA-1", ProtocolVersion.TLSv10, new SHA1Digest(), new SHA1Digest(), new CountingSHA1Digest2(), 20, 128);
+        testTlsRecordMacConstantTimeAllLengths("TLS 1.0 SHA-384", ProtocolVersion.TLSv10, new SHA384Digest(), new SHA384Digest(), new CountingSHA384Digest(), 48, 256);
+        for (int recordLength = 48; recordLength <= 256; recordLength += 16)
+        {
+            testTlsRecordMacConstantTimeAllLengths("SSL 3.0 SHA-1", ProtocolVersion.SSLv3, new SHA1Digest(), new SHA1Digest(), new CountingSHA1Digest2(), 20, recordLength);
+        }
 
         testHMac("HMac-SHA1", output1);
         testHMac("HMac-MD5", outputMD5);
