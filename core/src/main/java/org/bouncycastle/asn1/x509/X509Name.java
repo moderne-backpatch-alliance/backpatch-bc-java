@@ -1239,54 +1239,47 @@ public class X509Name
 
         buf.append('=');
 
-        // one pass, appending: inserting each escape into buf was O(n) per escape, O(n^2) per value
-        int len = value.length();
-        int index = 0;
+        int start = buf.length();
+        buf.append(value);
+        int end = buf.length();
 
-        if (len >= 2 && value.charAt(0) == '\\' && value.charAt(1) == '#')
+        if (value.length() >= 2 && value.charAt(0) == '\\' && value.charAt(1) == '#')
         {
-            buf.append("\\#");
-            index = 2;
+            start += 2;
         }
 
-        int leadEnd = index;
-        while (leadEnd < len && value.charAt(leadEnd) == ' ')
+        while (start < end && buf.charAt(start) == ' ')
         {
-            leadEnd++;
+            buf.insert(start, "\\");
+            start += 2;
+            ++end;
         }
 
-        int trailStart = len;
-        while (trailStart - 1 > leadEnd && value.charAt(trailStart - 1) == ' ')
+        while (--end > start && buf.charAt(end) == ' ')
         {
-            trailStart--;
+            buf.insert(end, '\\');
         }
 
-        for (; index < len; index++)
+        while (start <= end)
         {
-            char c = value.charAt(index);
-            if (index < leadEnd || index >= trailStart)
+            switch (buf.charAt(start))
             {
-                buf.append('\\');
+            case ',':
+            case '"':
+            case '\\':
+            case '+':
+            case '=':
+            case '<':
+            case '>':
+            case ';':
+                buf.insert(start, "\\");
+                start += 2;
+                ++end;
+                break;
+            default:
+                ++start;
+                break;
             }
-            else
-            {
-                switch (c)
-                {
-                case ',':
-                case '"':
-                case '\\':
-                case '+':
-                case '=':
-                case '<':
-                case '>':
-                case ';':
-                    buf.append('\\');
-                    break;
-                default:
-                    break;
-                }
-            }
-            buf.append(c);
         }
     }
 
