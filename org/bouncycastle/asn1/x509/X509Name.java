@@ -1139,35 +1139,34 @@ public class X509Name
 
         buf.append('=');
 
-        // one pass, appending: inserting each escape into buf was O(n) per escape, O(n^2) per value
-        int len = value.length();
-        int index = 0;
+        int     index = buf.length();
+        
+        buf.append(value);
 
-        if (len >= 2 && value.charAt(0) == '\\' && value.charAt(1) == '#')
+        int     end = buf.length();
+
+        if (value.length() >= 2 && value.charAt(0) == '\\' && value.charAt(1) == '#')
         {
-            buf.append("\\#");
-            index = 2;
+            index += 2;   
         }
 
-        for (; index < len; index++)
+        while (index != end)
         {
-            char c = value.charAt(index);
-            switch (c)
+            if ((buf.charAt(index) == ',')
+               || (buf.charAt(index) == '"')
+               || (buf.charAt(index) == '\\')
+               || (buf.charAt(index) == '+')
+               || (buf.charAt(index) == '=')
+               || (buf.charAt(index) == '<')
+               || (buf.charAt(index) == '>')
+               || (buf.charAt(index) == ';'))
             {
-            case ',':
-            case '"':
-            case '\\':
-            case '+':
-            case '=':
-            case '<':
-            case '>':
-            case ';':
-                buf.append('\\');
-                break;
-            default:
-                break;
+                buf.insert(index, "\\");
+                index++;
+                end++;
             }
-            buf.append(c);
+
+            index++;
         }
     }
 

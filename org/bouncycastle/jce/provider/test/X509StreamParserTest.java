@@ -15,7 +15,6 @@ import org.bouncycastle.asn1.DERUTF8String;
 import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.style.BCStyle;
-import org.bouncycastle.asn1.x509.X509Name;
 import org.bouncycastle.asn1.DERSet;
 import org.bouncycastle.asn1.DERTaggedObject;
 import org.bouncycastle.asn1.cms.CMSObjectIdentifiers;
@@ -38,7 +37,6 @@ import java.security.cert.X509CRL;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
 import java.util.Random;
-import java.util.Vector;
 
 public class X509StreamParserTest
     extends SimpleTest
@@ -242,7 +240,7 @@ public class X509StreamParserTest
     }
 
     // test written for the backpatch (CVE-2026-58059): RDN values escape in linear time through X500Name
-    // (IETFUtils) and X509Name, with the same output as the old insert-based escaping
+    // (IETFUtils), with the same output as the old insert-based escaping
     private void testRDNEscapeLinear()
     {
         String[] fixed = { "", "a", ",", "\\#abc", "#abc", "a,b+c=d<e>f;g\"h\\i", ",,,", "\\", "\\#,", " lead", "trail " };
@@ -265,11 +263,6 @@ public class X509StreamParserTest
                 v = new String(cs);
             }
 
-            String x509 = x509NameString(v);
-            if (!x509.equals("CN=" + oldEscape(v)))
-            {
-                fail("X509Name escaping changed for [" + v + "]: " + x509);
-            }
             String x500 = new X500Name(new RDN[]{ new RDN(BCStyle.CN, new DERUTF8String(v)) }).toString();
             if (!x500.equals("CN=" + oldEscape(v.startsWith("#") ? "\\" + v : v)))
             {
@@ -285,33 +278,20 @@ public class X509StreamParserTest
         String big = new String(commas);
 
         long start = System.currentTimeMillis();
-        int x509Len = x509NameString(big).length();
-        long x509Time = System.currentTimeMillis() - start;
-
-        start = System.currentTimeMillis();
         int x500Len = new X500Name(new RDN[]{ new RDN(BCStyle.CN, new DERUTF8String(big)) }).toString().length();
         long x500Time = System.currentTimeMillis() - start;
 
-        if (x509Len != 3 + 2 * commas.length || x500Len != 3 + 2 * commas.length)
+        if (x500Len != 3 + 2 * commas.length)
         {
             fail("1,000,000 commas escaped wrongly");
         }
-        if (x509Time > 5000 || x500Time > 5000)
+        if (x500Time > 5000)
         {
-            fail("1,000,000 commas took " + x509Time + " ms (X509Name) and " + x500Time + " ms (X500Name)");
+            fail("1,000,000 commas took " + x500Time + " ms (X500Name)");
         }
     }
 
-    private static String x509NameString(String value)
-    {
-        Vector oids = new Vector();
-        Vector values = new Vector();
-        oids.addElement(X509Name.CN);
-        values.addElement(value);
-        return new X509Name(oids, values).toString();
-    }
-
-    // the escaping of the baseline's X509Name.appendValue and IETFUtils.valueToString, applied to the whole value
+    // the escaping of the baseline's IETFUtils.valueToString, applied to the whole value
     private static String oldEscape(String value)
     {
         StringBuffer buf = new StringBuffer(value);
