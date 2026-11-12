@@ -17,8 +17,11 @@ import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.asn1.x9.DHDomainParameters;
+import org.bouncycastle.asn1.x9.DHValidationParms;
 import org.bouncycastle.asn1.x9.X9ObjectIdentifiers;
+import org.bouncycastle.crypto.params.DHParameters;
 import org.bouncycastle.crypto.params.DHPublicKeyParameters;
+import org.bouncycastle.crypto.params.DHValidationParameters;
 import org.bouncycastle.jcajce.provider.asymmetric.util.KeyUtil;
 
 public class BCDHPublicKey
@@ -36,6 +39,7 @@ public class BCDHPublicKey
     {
         this.y = spec.getY();
         this.dhSpec = new DHParameterSpec(spec.getP(), spec.getG());
+        new DHPublicKeyParameters(y, new DHParameters(spec.getP(), spec.getG())); // throws on an invalid y
     }
 
     BCDHPublicKey(
@@ -43,6 +47,7 @@ public class BCDHPublicKey
     {
         this.y = key.getY();
         this.dhSpec = key.getParams();
+        new DHPublicKeyParameters(y, new DHParameters(dhSpec.getP(), dhSpec.getG())); // throws on an invalid y
     }
 
     BCDHPublicKey(
@@ -58,6 +63,7 @@ public class BCDHPublicKey
     {
         this.y = y;
         this.dhSpec = dhSpec;
+        new DHPublicKeyParameters(y, new DHParameters(dhSpec.getP(), dhSpec.getG())); // throws on an invalid y
     }
 
     public BCDHPublicKey(
@@ -93,12 +99,21 @@ public class BCDHPublicKey
             {
                 this.dhSpec = new DHParameterSpec(params.getP(), params.getG());
             }
+            new DHPublicKeyParameters(y, new DHParameters(dhSpec.getP(), dhSpec.getG())); // throws on an invalid y
         }
         else if (id.equals(X9ObjectIdentifiers.dhpublicnumber))
         {
             DHDomainParameters params = DHDomainParameters.getInstance(seq);
 
             this.dhSpec = new DHParameterSpec(params.getP().getValue(), params.getG().getValue());
+            BigInteger j = (params.getJ() != null) ? params.getJ().getValue() : null;
+            DHValidationParms validationParms = params.getValidationParms();
+            DHValidationParameters validation = null;
+            if (validationParms != null)
+            {
+                validation = new DHValidationParameters(validationParms.getSeed().getBytes(), validationParms.getPgenCounter().getValue().intValue());
+            }
+            new DHPublicKeyParameters(y, new DHParameters(params.getP().getValue(), params.getG().getValue(), params.getQ().getValue(), j, validation)); // throws on an invalid y
         }
         else
         {

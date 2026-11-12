@@ -7,10 +7,12 @@ import java.io.ObjectOutputStream;
 import java.math.BigInteger;
 import java.security.AlgorithmParameterGenerator;
 import java.security.AlgorithmParameters;
+import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.security.interfaces.ECPrivateKey;
@@ -28,8 +30,13 @@ import javax.crypto.interfaces.DHPublicKey;
 import javax.crypto.spec.DESKeySpec;
 import javax.crypto.spec.DESedeKeySpec;
 import javax.crypto.spec.DHParameterSpec;
+import javax.crypto.spec.DHPublicKeySpec;
 
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.crypto.agreement.DHBasicAgreement;
+import org.bouncycastle.crypto.params.DHParameters;
+import org.bouncycastle.crypto.params.DHPrivateKeyParameters;
+import org.bouncycastle.crypto.params.DHPublicKeyParameters;
 import org.bouncycastle.jcajce.provider.config.ConfigurableProvider;
 import org.bouncycastle.jce.ECPointUtil;
 import org.bouncycastle.jce.interfaces.PKCS12BagAttributeCarrier;
@@ -761,6 +768,153 @@ public class DHTest
         }
     }
 
+    private void isTrue(String message, boolean value)
+    {
+        if (!value)
+        {
+            fail(message);
+        }
+    }
+
+    private void testInvalidKeyParameters()
+    {
+        BigInteger p = BigInteger.valueOf(23);
+        BigInteger g = BigInteger.valueOf(4);
+        BigInteger[] badNoQ = new BigInteger[]{ BigInteger.ZERO, BigInteger.ONE, p.subtract(BigInteger.ONE), p, p.add(BigInteger.ONE) };
+        for (int i = 0; i != badNoQ.length; i++)
+        {
+            try
+            {
+                new DHPublicKeyParameters(badNoQ[i], new DHParameters(p, g));
+                fail("accepted y " + badNoQ[i]);
+            }
+            catch (IllegalArgumentException e)
+            {
+                isTrue("wrong message (range)", "invalid DH public key".equals(e.getMessage()));
+            }
+        }
+
+        // 23 = 2 * 11 + 1 and 4 generates the subgroup of order 11: 5 is outside it, 3 is inside
+        DHParameters withQ = new DHParameters(p, g, BigInteger.valueOf(11));
+        try
+        {
+            new DHPublicKeyParameters(BigInteger.valueOf(5), withQ);
+            fail("accepted y outside the subgroup");
+        }
+        catch (IllegalArgumentException e)
+        {
+            isTrue("wrong message (subgroup)", "Y value does not appear to be in correct group".equals(e.getMessage()));
+        }
+        new DHPublicKeyParameters(BigInteger.valueOf(3), withQ);
+
+        // without q, 2 passes the range check, but 2^11 = 1 mod 23
+        DHParameters noQ = new DHParameters(p, g);
+        DHPublicKeyParameters peer = new DHPublicKeyParameters(BigInteger.valueOf(2), noQ);
+        DHBasicAgreement basic = new DHBasicAgreement();
+        basic.init(new DHPrivateKeyParameters(BigInteger.valueOf(11), noQ));
+        try
+        {
+            basic.calculateAgreement(peer);
+            fail("DHBasicAgreement accepted a shared key of 1");
+        }
+        catch (IllegalStateException e)
+        {
+            isTrue("wrong message (basic)", "Shared key can't be 1".equals(e.getMessage()));
+        }
+    }
+
+    public DHParameterSpec ike2048()
+    {
+        final BigInteger p = new BigInteger(
+            "ffffffffffffffffc90fdaa22168c234c4c6628b80dc1cd129024e088a67cc74"
+                + "020bbea63b139b22514a08798e3404ddef9519b3cd3a431b302b0a6df25f1437"
+                + "4fe1356d6d51c245e485b576625e7ec6f44c42e9a637ed6b0bff5cb6f406b7ed"
+                + "ee386bfb5a899fa5ae9f24117c4b1fe649286651ece45b3dc2007cb8a163bf05"
+                + "98da48361c55d39a69163fa8fd24cf5f83655d23dca3ad961c62f356208552bb"
+                + "9ed529077096966d670c354e4abc9804f1746c08ca18217c32905e462e36ce3b"
+                + "e39e772c180e86039b2783a2ec07a28fb5c55df06f4c52c9de2bcbf695581718"
+                + "3995497cea956ae515d2261898fa051015728e5a8aacaa68ffffffffffffffff", 16);
+        final BigInteger g = new BigInteger("2");
+        return new DHParameterSpec(p, g);
+    }
+
+
+    /**
+     * Tests whether a provider accepts invalid public keys that result in predictable shared secrets.
+     * This test is based on RFC 2785, Section 4 and NIST SP 800-56A,
+     * If an attacker can modify both public keys in an ephemeral-ephemeral key agreement scheme then
+     * it may be possible to coerce both parties into computing the same predictable shared key.
+     * <p/>
+     * Note: the test is quite whimsical. If the prime p is not a safe prime then the provider itself
+     * cannot prevent all small-subgroup attacks because of the missing parameter q in the
+     * Diffie-Hellman parameters. Implementations must add additional countermeasures such as the ones
+     * proposed in RFC 2785.
+     */
+    private void testSubgroupConfinement()
+        throws Exception
+    {
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("DH", "BC");
+        DHParameterSpec params = ike2048();
+        final BigInteger p = params.getP();
+        final BigInteger g = params.getG();
+        keyGen.initialize(params);
+        PrivateKey priv = keyGen.generateKeyPair().getPrivate();
+        KeyAgreement ka = KeyAgreement.getInstance("DH", "BC");
+        BigInteger[] weakPublicKeys = {
+            BigInteger.ZERO, BigInteger.ONE, p.subtract(BigInteger.ONE), p,
+            p.add(BigInteger.ONE), BigInteger.ONE.negate()};
+        for (final BigInteger weakKey : weakPublicKeys)
+        {
+            DHPublicKeySpec weakSpec = new DHPublicKeySpec(weakKey, p, g);
+            KeyFactory kf = KeyFactory.getInstance("DH", "BC");
+            try
+            {
+                kf.generatePublic(weakSpec);
+                fail("Generated weak public key");
+            }
+            catch (GeneralSecurityException ex)
+            {
+                isTrue("wrong message (generate)", "invalid DH public key".equals(ex.getMessage()));
+            }
+            ka.init(priv);
+            try
+            {
+                ka.doPhase(new DHPublicKey()
+                {
+                    public BigInteger getY()
+                    {
+                        return weakKey;
+                    }
+
+                    public DHParameterSpec getParams()
+                    {
+                        return new DHParameterSpec(p, g);
+                    }
+
+                    public String getAlgorithm()
+                    {
+                        return null;
+                    }
+
+                    public String getFormat()
+                    {
+                        return null;
+                    }
+
+                    public byte[] getEncoded()
+                    {
+                        return new byte[0];
+                    }
+                }, true);
+                fail("Generated secrets with weak public key");
+            }
+            catch (GeneralSecurityException ex)
+            {
+                isTrue("wrong message (doPhase)", "Invalid DH PublicKey".equals(ex.getMessage()));
+            }
+        }
+    }
+
     public void performTest()
         throws Exception
     {
@@ -780,6 +934,8 @@ public class DHTest
         testExceptions();
         testDESAndDESede(g768, p768);
         testInitialise();
+        testInvalidKeyParameters();
+        testSubgroupConfinement();
     }
 
     public static void main(

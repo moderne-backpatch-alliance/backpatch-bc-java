@@ -26,6 +26,9 @@ import org.bouncycastle.util.Strings;
 public class KeyAgreementSpi
     extends javax.crypto.KeyAgreementSpi
 {
+    private static final BigInteger ONE = BigInteger.valueOf(1);
+    private static final BigInteger TWO = BigInteger.valueOf(2);
+
     private BigInteger      x;
     private BigInteger      p;
     private BigInteger      g;
@@ -83,14 +86,22 @@ public class KeyAgreementSpi
             throw new InvalidKeyException("DHPublicKey not for this KeyAgreement!");
         }
 
+        BigInteger peerY = ((DHPublicKey)key).getY();
+        if (peerY == null || peerY.compareTo(TWO) < 0
+            || peerY.compareTo(p.subtract(ONE)) >= 0)
+        {
+            throw new InvalidKeyException("Invalid DH PublicKey");
+        }
+
+        result = peerY.modPow(x, p);
+        if (result.compareTo(ONE) == 0)
+        {
+            throw new InvalidKeyException("Shared key can't be 1");
+        }
+
         if (lastPhase)
         {
-            result = ((DHPublicKey)key).getY().modPow(x, p);
             return null;
-        }
-        else
-        {
-            result = ((DHPublicKey)key).getY().modPow(x, p);
         }
 
         return new BCDHPublicKey(result, pubKey.getParams());
