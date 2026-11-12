@@ -5,9 +5,11 @@ import java.security.SecureRandom;
 
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
 import org.bouncycastle.crypto.BufferedBlockCipher;
+import org.bouncycastle.crypto.InvalidCipherTextException;
 import org.bouncycastle.crypto.KeyGenerationParameters;
 import org.bouncycastle.crypto.agreement.ECDHBasicAgreement;
 import org.bouncycastle.crypto.digests.SHA1Digest;
+import org.bouncycastle.crypto.engines.AESEngine;
 import org.bouncycastle.crypto.engines.IESEngine;
 import org.bouncycastle.crypto.engines.TwofishEngine;
 import org.bouncycastle.crypto.generators.ECKeyPairGenerator;
@@ -22,6 +24,7 @@ import org.bouncycastle.crypto.params.ECPublicKeyParameters;
 import org.bouncycastle.crypto.params.IESParameters;
 import org.bouncycastle.crypto.params.IESWithCipherParameters;
 import org.bouncycastle.math.ec.ECCurve;
+import org.bouncycastle.util.Arrays;
 import org.bouncycastle.util.encoders.Hex;
 import org.bouncycastle.util.test.SimpleTest;
 
@@ -207,10 +210,71 @@ public class ECIESTest
         }
     }
 
+    private void doMacBeforePaddingTest()
+        throws Exception
+    {
+        ECCurve.Fp curve = new ECCurve.Fp(
+            new BigInteger("6277101735386680763835789423207666416083908700390324961279"), // q
+            new BigInteger("fffffffffffffffffffffffffffffffefffffffffffffffc", 16), // a
+            new BigInteger("64210519e59c80e70fa7e9ab72243049feb8deecc146b9b1", 16)); // b
+
+        ECDomainParameters params = new ECDomainParameters(
+                curve,
+                curve.decodePoint(Hex.decode("03188da80eb03090f67cbf20eb43a18800f4ff0afd82ff1012")), // G
+                new BigInteger("6277101735386680763835789423176059013767194773182842284081")); // n
+
+        ECPrivateKeyParameters priKey = new ECPrivateKeyParameters(
+            new BigInteger("651056770906015076056810763456358567190100156695615665659"), // d
+            params);
+
+        ECPublicKeyParameters pubKey = new ECPublicKeyParameters(
+            curve.decodePoint(Hex.decode("0262b12d60690cdcf330babab6e69763b471f994dd702d16a5")), // Q
+            params);
+
+        IESWithCipherParameters param = new IESWithCipherParameters(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 },
+            new byte[] { 8, 7, 6, 5, 4, 3, 2, 1 }, 64, 128);
+        byte[] message = Hex.decode("000102030405060708090a0b0c0d0e0f10111213");
+
+        IESEngine enc = new IESEngine(new ECDHBasicAgreement(), new KDF2BytesGenerator(new SHA1Digest()),
+            new HMac(new SHA1Digest()), new PaddedBufferedBlockCipher(new CBCBlockCipher(new AESEngine())));
+        enc.init(true, priKey, pubKey, param);
+        byte[] ct = enc.processBlock(message, 0, message.length);
+
+        IESEngine dec = new IESEngine(new ECDHBasicAgreement(), new KDF2BytesGenerator(new SHA1Digest()),
+            new HMac(new SHA1Digest()), new PaddedBufferedBlockCipher(new CBCBlockCipher(new AESEngine())));
+        dec.init(false, priKey, pubKey, param);
+        if (!Arrays.areEqual(message, dec.processBlock(ct, 0, ct.length)))
+        {
+            fail("block cipher round trip failed");
+        }
+
+        // breaking the last cipher text block and the MAC must report the MAC, whatever the padding became
+        int macLen = new HMac(new SHA1Digest()).getMacSize();
+        for (int t = 0; t != 16; t++)
+        {
+            byte[] bad = Arrays.clone(ct);
+            bad[ct.length - macLen - 1] ^= (byte)(t + 1);
+            bad[ct.length - 1] ^= 0x01;
+            try
+            {
+                dec.processBlock(bad, 0, bad.length);
+                fail("tampered block cipher message accepted");
+            }
+            catch (InvalidCipherTextException e)
+            {
+                if (!"Mac codes failed to equal.".equals(e.getMessage()))
+                {
+                    fail("padding checked before the MAC: " + e.getMessage());
+                }
+            }
+        }
+    }
+
     public void performTest()
         throws Exception
     {
         staticTest();
+        doMacBeforePaddingTest();
         
         ECCurve.Fp curve = new ECCurve.Fp(
             new BigInteger("6277101735386680763835789423207666416083908700390324961279"), // q
