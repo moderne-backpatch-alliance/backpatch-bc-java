@@ -8,7 +8,7 @@ import org.bouncycastle.crypto.digests.MD5Digest;
 import org.bouncycastle.crypto.digests.SHA1Digest;
 import org.bouncycastle.crypto.digests.SHA256Digest;
 import org.bouncycastle.crypto.digests.SHA384Digest;
-import org.bouncycastle.crypto.engines.AESFastEngine;
+import org.bouncycastle.crypto.engines.AESEngine;
 import org.bouncycastle.crypto.engines.DESedeEngine;
 import org.bouncycastle.crypto.modes.CBCBlockCipher;
 
@@ -41,9 +41,14 @@ public class DefaultTlsCipherFactory implements TlsCipherFactory
             createDESedeBlockCipher(), createDigest(digestAlgorithm), createDigest(digestAlgorithm), cipherKeySize);
     }
 
+    protected BlockCipher createAESEngine()
+    {
+        return new AESEngine();
+    }
+
     protected BlockCipher createAESBlockCipher()
     {
-        return new CBCBlockCipher(new AESFastEngine());
+        return new CBCBlockCipher(createAESEngine());
     }
 
     protected BlockCipher createDESedeBlockCipher()

@@ -300,7 +300,8 @@ public class AESTest
             "org/bouncycastle/jcajce/provider/symmetric/AES$OFB.class",
             "org/bouncycastle/jcajce/provider/symmetric/AES$AESCMAC.class",
             "org/bouncycastle/jcajce/provider/symmetric/AES$RFC3211Wrap.class",
-            "org/bouncycastle/jce/provider/JCEBlockCipher$PBEWithAESCBC.class"
+            "org/bouncycastle/jce/provider/JCEBlockCipher$PBEWithAESCBC.class",
+            "org/bouncycastle/crypto/tls/DefaultTlsCipherFactory.class"
         };
         byte[] name = "org/bouncycastle/crypto/engines/AESFastEngine".getBytes("US-ASCII");
 
