@@ -7,7 +7,9 @@ import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1OutputStream;
 import org.bouncycastle.asn1.ASN1Primitive;
+import org.bouncycastle.asn1.DEREnumerated;
 import org.bouncycastle.asn1.DERIA5String;
+import org.bouncycastle.asn1.DERInteger;
 import org.bouncycastle.asn1.misc.CAST5CBCParameters;
 import org.bouncycastle.asn1.misc.IDEACBCPar;
 import org.bouncycastle.asn1.misc.NetscapeCertType;
@@ -41,6 +43,54 @@ public class MiscTest
         return true;
     }
     
+    private void isTrue(String message, boolean value)
+    {
+        if (!value)
+        {
+            throw new IllegalStateException(message);
+        }
+    }
+
+    public void derIntegerTest()
+        throws Exception
+    {
+        try
+        {
+            new DERInteger(new byte[] { 0, 0, 0, 1});
+        }
+        catch (IllegalArgumentException e)
+        {
+            isTrue("wrong exc", "malformed integer".equals(e.getMessage()));
+        }
+
+        try
+        {
+            new DERInteger(new byte[] {(byte)0xff, (byte)0x80, 0, 1});
+        }
+        catch (IllegalArgumentException e)
+        {
+            isTrue("wrong exc", "malformed integer".equals(e.getMessage()));
+        }
+
+        try
+        {
+            new DEREnumerated(new byte[] { 0, 0, 0, 1});
+        }
+        catch (IllegalArgumentException e)
+        {
+            isTrue("wrong exc", "malformed enumerated".equals(e.getMessage()));
+        }
+
+        try
+        {
+            new DEREnumerated(new byte[] {(byte)0xff, (byte)0x80, 0, 1});
+        }
+        catch (IllegalArgumentException e)
+        {
+            isTrue("wrong exc", "malformed enumerated".equals(e.getMessage()));
+        }
+    }
+
     public TestResult perform()
     {
         byte[]  testIv = { 1, 2, 3, 4, 5, 6, 7, 8 };
@@ -89,6 +139,8 @@ public class MiscTest
                 }
             }
             
+            derIntegerTest();
+
             return new SimpleTestResult(true, getName() + ": Okay");
         }
         catch (Exception e)

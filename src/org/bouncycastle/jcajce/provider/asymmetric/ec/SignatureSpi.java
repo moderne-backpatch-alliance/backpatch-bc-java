@@ -31,6 +31,7 @@ import org.bouncycastle.jcajce.provider.asymmetric.util.DSABase;
 import org.bouncycastle.jcajce.provider.asymmetric.util.DSAEncoder;
 import org.bouncycastle.jce.interfaces.ECKey;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.util.Arrays;
 
 public class SignatureSpi
     extends DSABase
@@ -259,6 +260,15 @@ public class SignatureSpi
             throws IOException
         {
             ASN1Sequence s = (ASN1Sequence)ASN1Primitive.fromByteArray(encoding);
+            if (s.size() != 2)
+            {
+                throw new IOException("malformed signature");
+            }
+            if (!Arrays.areEqual(encoding, s.getEncoded(ASN1Encoding.DER)))
+            {
+                throw new IOException("malformed signature");
+            }
+
             BigInteger[] sig = new BigInteger[2];
 
             sig[0] = ((DERInteger)s.getObjectAt(0)).getValue();
