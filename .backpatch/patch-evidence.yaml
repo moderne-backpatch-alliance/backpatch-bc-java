@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.46.1-backpatch-00029
+release: 1.46.1-backpatch-00030
 baseline: v1.46+backpatch.baseline
 fixes:
   - cve: CVE-2016-1000338
@@ -227,10 +227,19 @@ fixes:
     artifacts:
       - org.bouncycastle:bcprov-jdk15
     note: Carried from 1.46.1-backpatch-00028; ported onto 1.46; fixed at 1.46.1-backpatch-00028 (backpatch-bc-java@6a39fea..1fe5da5).
+  - cve: CVE-2026-58059
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/7bf20eea8c1b71a4d3574b75ba20ccf26ffff36b
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-58059
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/abde767
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15
+    note: "New in this release; adapted onto 1.46; fixed at 1.46.1-backpatch-00030 (backpatch-bc-java@abde767). X500Name escapes RDN values with upstream's linear code (CVE-2026-58059). X509Name.toString, and so the getName() of Bouncy Castle's X509Principal, escapes them with the baseline's code, as upstream does: a value of hundreds of thousands of escaped characters such as commas renders in seconds rather than milliseconds."
 tests:
-  commit: 6c680172524dc72c0de48ff69fa2a33ab19cb5ba
-  command: none in this repository
-  runtime: none, no build or test ran for this release
-  report: carried, see the evidence of the release named in the note
+  commit: abde767e6d7905d7f9cc2b4cb57aa6cc74dc36d1
+  command: javac of Zulu 7u55 (-source/-target 1.5) over the release's source set, then ant junit (Apache Ant 1.9.16) over the ProviderRegressionSuite and the AllTests suites (bc-1.46-suite.xml) on Zulu 6u42 in a linux/amd64 container, through <alliance>/work/wave2/items/scripts/bc-1.46.sh suite, with BC registered as a static provider through -Djava.security.properties, -Duser.timezone=Australia/Melbourne and <alliance>/work/adr-0008-impact/evidence/G052-test-resources on the test class path (<alliance>/work/adr-0008-impact/evidence/bcprov-G040/run-g040-1.46-zulu6.sh)
+  runtime: Azul Zulu (Java 1.6.0_42, Linux x64, with Zulu 7u181's unlimited JCE policy jars) running the tests, Apache Ant 1.9.16, in a linux/amd64 debian:bookworm-slim container on macOS aarch64
+  report: bcprov-jdk15-1.46.1-backpatch-00030-tests.zip
+  report_sha256: f1fb68f10270044690f353ff6002c37d29c4f6145dde7939b308923d153ced64
   result: pass
-  note: "this release is a tooling update, it carries no new fix, nothing ran here; its test provenance is tooling-2026-11-03-bouncycastle-1.46: a tooling update of moderne-backpatch-alliance/backpatch-bc-java at v1.46.1-backpatch-00028, whose .backpatch/patch-evidence.yaml says what ran"
+  note: 'the full suite at the tested commit, 76 tests run, 0 failed, 0 skipped; test JVMs and setup as 1.46.1-backpatch-00027''s evidence describes: Zulu 6u42 with unlimited JCE policy jars, -Duser.timezone=Australia/Melbourne, BC as a static provider, and ReaderTest''s five PEM files from bc-java''s first git import 158b54fba on the test class path; the regression test for CVE-2026-58059 is X509StreamParserTest, reported as ProviderRegressionSuite 37-X509StreamParser'
