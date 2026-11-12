@@ -11,10 +11,14 @@ import org.bouncycastle.asn1.pkcs.RSAPrivateKey;
 import org.bouncycastle.asn1.pkcs.RSAPublicKey;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.crypto.AsymmetricBlockCipher;
+import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
+import org.bouncycastle.crypto.AsymmetricCipherKeyPairGenerator;
 import org.bouncycastle.crypto.InvalidCipherTextException;
 import org.bouncycastle.crypto.encodings.OAEPEncoding;
 import org.bouncycastle.crypto.engines.RSAEngine;
+import org.bouncycastle.crypto.generators.RSAKeyPairGenerator;
 import org.bouncycastle.crypto.params.ParametersWithRandom;
+import org.bouncycastle.crypto.params.RSAKeyGenerationParameters;
 import org.bouncycastle.crypto.params.RSAKeyParameters;
 import org.bouncycastle.crypto.params.RSAPrivateCrtKeyParameters;
 import org.bouncycastle.util.encoders.Hex;
@@ -777,6 +781,217 @@ public class OAEPTest
         oaepVecTest(1027, 4, pubParam, privParam, seed_1027_4, input_1027_4, output_1027_4);
         oaepVecTest(1027, 5, pubParam, privParam, seed_1027_5, input_1027_5, output_1027_5);
         oaepVecTest(1027, 6, pubParam, privParam, seed_1027_6, input_1027_6, output_1027_6);
+
+        testForHighByteError("invalidCiphertextOaepTest 1024", 1024);
+        testDecodeErrorsUniform();
+    }
+
+    private void testForHighByteError(String label, int keySizeBits) throws Exception
+    {
+        // draw a key of the size asked
+        BigInteger e = BigInteger.ONE.shiftLeft(16).add(BigInteger.ONE);
+
+        AsymmetricCipherKeyPairGenerator kpGen = new RSAKeyPairGenerator();
+
+        kpGen.init(new RSAKeyGenerationParameters(e, new SecureRandom(), keySizeBits, 100));
+
+        AsymmetricCipherKeyPair kp = kpGen.generateKeyPair();
+
+        AsymmetricBlockCipher cipher = new OAEPEncoding(new RSAEngine());
+
+        // obtain a known good ciphertext
+        cipher.init(true, new ParametersWithRandom(kp.getPublic(), new VecRand(seed)));
+        byte[] m = { 42 };
+        byte[] c = cipher.processBlock(m, 0, m.length);
+        int keySizeBytes = (keySizeBits+7)>>>3;
+        if (c.length!=keySizeBytes)
+        {
+            fail(label + " failed ciphertext size");
+        }
+
+        BigInteger n  = ((RSAPrivateCrtKeyParameters)kp.getPrivate()).getModulus();
+
+        // decipher
+        cipher.init(false, kp.getPrivate());
+        byte[] r = cipher.processBlock(c, 0, keySizeBytes);
+        if (r.length!=1 || r[0]!=42)
+        {
+            fail(label + " failed first decryption of test message");
+        }
+
+        // decipher again
+        r = cipher.processBlock(c, 0, keySizeBytes);
+        if (r.length!=1 || r[0]!=42)
+        {
+            fail(label + " failed second decryption of test message");
+        }
+
+        // check hapazard incorrect ciphertexts
+        for(int i=keySizeBytes*8; --i>=0;)
+        {
+            c[i>>>3] ^= 1<<(i&7);
+            boolean ko = true;
+            try
+            {
+                BigInteger cV = new BigInteger(1, c);
+
+                // don't pass in c if it will be rejected trivially
+                if (cV.compareTo(n) < 0)
+                {
+                    r = cipher.processBlock(c, 0, keySizeBytes);
+                }
+                else
+                {
+                    ko = false; // size errors are picked up at start
+                }
+            }
+            catch (InvalidCipherTextException exception)
+            {
+                ko = false;
+            }
+            if (ko)
+            {
+                fail(label + " invalid ciphertext caused no exception");
+            }
+            c[i>>>3] ^= 1<<(i&7);
+        }
+    }
+
+    // a raw block handed to the decoder, so each fault can be made on its own
+    private static class FixedBlockEngine implements AsymmetricBlockCipher
+    {
+        private final byte[] block;
+        private final int outputSize;
+
+        FixedBlockEngine(byte[] block, int outputSize)
+        {
+            this.block = block;
+            this.outputSize = outputSize;
+        }
+
+        public void init(boolean forEncryption, org.bouncycastle.crypto.CipherParameters param)
+        {
+        }
+
+        public int getInputBlockSize()
+        {
+            return outputSize;
+        }
+
+        public int getOutputBlockSize()
+        {
+            return outputSize;
+        }
+
+        public byte[] processBlock(byte[] in, int inOff, int len)
+        {
+            return block;
+        }
+    }
+
+    private byte[] maskedBlock(byte[] db)
+        throws Exception
+    {
+        org.bouncycastle.crypto.digests.SHA1Digest sha1 = new org.bouncycastle.crypto.digests.SHA1Digest();
+        byte[] rnd = new byte[20];
+        byte[] out = new byte[20 + db.length];
+
+        System.arraycopy(mgf1(sha1, rnd, db.length), 0, out, 20, db.length);
+        for (int i = 0; i != db.length; i++)
+        {
+            out[20 + i] ^= db[i];
+        }
+        byte[] seedMask = mgf1(sha1, subBlock(out, 20, db.length), 20);
+        for (int i = 0; i != 20; i++)
+        {
+            out[i] = (byte)(seedMask[i] ^ rnd[i]);
+        }
+        return out;
+    }
+
+    private byte[] subBlock(byte[] b, int off, int len)
+    {
+        byte[] r = new byte[len];
+        System.arraycopy(b, off, r, 0, len);
+        return r;
+    }
+
+    private byte[] mgf1(org.bouncycastle.crypto.Digest d, byte[] z, int len)
+    {
+        byte[] mask = new byte[len + 20];
+        byte[] h = new byte[20];
+        for (int c = 0; c * 20 < len; c++)
+        {
+            d.update(z, 0, z.length);
+            d.update((byte)(c >>> 24));
+            d.update((byte)(c >>> 16));
+            d.update((byte)(c >>> 8));
+            d.update((byte)c);
+            d.doFinal(h, 0);
+            System.arraycopy(h, 0, mask, c * 20, 20);
+        }
+        return subBlock(mask, 0, len);
+    }
+
+    private String decodeError(byte[] block, int outputSize)
+        throws Exception
+    {
+        OAEPEncoding oaep = new OAEPEncoding(new FixedBlockEngine(block, outputSize));
+        oaep.init(false, null);
+        try
+        {
+            oaep.processBlock(new byte[1], 0, 1);
+            return null;
+        }
+        catch (InvalidCipherTextException e)
+        {
+            return e.getMessage();
+        }
+    }
+
+    // CVE-2020-26939: every malformed block is refused the same way
+    private void testDecodeErrorsUniform()
+        throws Exception
+    {
+        byte[] lHash = Hex.decode("da39a3ee5e6b4b0d3255bfef95601890afd80709");    // SHA-1 of the empty string
+        int size = 127;
+
+        // lHash, zero padding, 01, message
+        byte[] good = new byte[size - 20];
+        System.arraycopy(lHash, 0, good, 0, 20);
+        good[good.length - 2] = 1;
+        good[good.length - 1] = 42;
+        byte[] r = new OAEPEncoding(new FixedBlockEngine(maskedBlock(good), size)).processBlock(new byte[1], 0, 1);
+        isTrue("well formed block not decoded", r.length == 1 && r[0] == 42);
+
+        byte[] hashWrong = (byte[])good.clone();
+        hashWrong[0] ^= 1;
+        byte[] startWrong = (byte[])good.clone();
+        startWrong[good.length - 2] = 2;
+        byte[] noMessage = (byte[])good.clone();
+        noMessage[good.length - 2] = 0;
+        noMessage[good.length - 1] = 1;
+
+        isEquals("label hash wrong", "data wrong", decodeError(maskedBlock(hashWrong), size));
+        isEquals("separator wrong", "data wrong", decodeError(maskedBlock(startWrong), size));
+        isEquals("separator with no message", "data wrong", decodeError(maskedBlock(noMessage), size));
+        isEquals("output longer than the block", "data wrong", decodeError(new byte[size + 1], size));
+    }
+
+    private void isTrue(String label, boolean ok)
+    {
+        if (!ok)
+        {
+            fail(label);
+        }
+    }
+
+    private void isEquals(String label, String expected, String actual)
+    {
+        if (!expected.equals(actual))
+        {
+            fail(label + ": expected " + expected + " got " + actual);
+        }
     }
 
     public static void main(

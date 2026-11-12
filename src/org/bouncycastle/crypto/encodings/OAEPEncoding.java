@@ -6,6 +6,7 @@ import org.bouncycastle.crypto.Digest;
 import org.bouncycastle.crypto.InvalidCipherTextException;
 import org.bouncycastle.crypto.digests.SHA1Digest;
 import org.bouncycastle.crypto.params.ParametersWithRandom;
+import org.bouncycastle.util.Arrays;
 
 import java.security.SecureRandom;
 
@@ -206,27 +207,23 @@ public class OAEPEncoding
         throws InvalidCipherTextException
     {
         byte[]  data = engine.processBlock(in, inOff, inLen);
-        byte[]  block;
+        byte[]  block = new byte[engine.getOutputBlockSize()];
 
         //
         // as we may have zeros in our leading bytes for the block we produced
         // on encryption, we need to make sure our decrypted block comes back
         // the same size.
         //
-        if (data.length < engine.getOutputBlockSize())
-        {
-            block = new byte[engine.getOutputBlockSize()];
+        boolean wrongData = (block.length < (2 * defHash.length) + 1);
 
+        if (data.length <= block.length)
+        {
             System.arraycopy(data, 0, block, block.length - data.length, data.length);
         }
         else
         {
-            block = data;
-        }
-
-        if (block.length < (2 * defHash.length) + 1)
-        {
-            throw new InvalidCipherTextException("data too short");
+            System.arraycopy(data, 0, block, 0, block.length);
+            wrongData = true;
         }
 
         //
@@ -252,34 +249,40 @@ public class OAEPEncoding
 
         //
         // check the hash of the encoding params.
+        // long check to try to avoid this been a source of a timing attack.
         //
+        boolean defHashWrong = false;
+
         for (int i = 0; i != defHash.length; i++)
         {
             if (defHash[i] != block[defHash.length + i])
             {
-                throw new InvalidCipherTextException("data hash wrong");
+                defHashWrong = true;
             }
         }
 
         //
         // find the data block
         //
-        int start;
+        int start = block.length;
 
-        for (start = 2 * defHash.length; start != block.length; start++)
+        for (int index = 2 * defHash.length; index != block.length; index++)
         {
-            if (block[start] != 0)
+            if (block[index] != 0 & start == block.length)
             {
-                break;
+                start = index;
             }
         }
 
-        if (start >= (block.length - 1) || block[start] != 1)
-        {
-            throw new InvalidCipherTextException("data start wrong " + start);
-        }
+        boolean dataStartWrong = (start >= (block.length - 1) | block[start] != 1);
 
         start++;
+
+        if (defHashWrong | wrongData | dataStartWrong)
+        {
+            Arrays.fill(block, (byte)0);
+            throw new InvalidCipherTextException("data wrong");
+        }
 
         //
         // extract the data block
