@@ -29,7 +29,7 @@ public class DSATest
 
     byte[] keyData = Hex.decode("b5014e4b60ef2ba8b6211b4062ba3224e0427dd3");
     
-    SecureRandom    keyRandom = new FixedSecureRandom(new byte[][] { keyData, keyData });
+    SecureRandom    keyRandom = new FixedSecureRandom(new byte[][] { keyData, keyData, Hex.decode("01020304") });
     
     BigInteger  pValue = new BigInteger("8df2a494492276aa3d25759bb06869cbeac0d83afb8d0cf7cbb8324f0d7882e5d0762fc5b7210eafc2e9adac32ab7aac49693dfbf83724c2ec0736ee31c80291", 16);
     BigInteger  qValue = new BigInteger("c773218c737ec8ee993b4f2ded30f48edace915f", 16);

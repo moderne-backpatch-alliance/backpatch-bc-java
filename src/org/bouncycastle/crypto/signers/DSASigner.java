@@ -68,7 +68,8 @@ public class DSASigner
         }
         while (k.compareTo(params.getQ()) >= 0);
 
-        BigInteger  r = params.getG().modPow(k, params.getP()).mod(params.getQ());
+        // the randomizer is to conceal timing information related to k and x.
+        BigInteger  r = params.getG().modPow(k.add(getRandomizer(params.getQ(), random)), params.getP()).mod(params.getQ());
 
         k = k.modInverse(params.getQ()).multiply(
                     m.add(((DSAPrivateKeyParameters)key).getX().multiply(r)));
@@ -134,5 +135,13 @@ public class DSASigner
 
             return new BigInteger(1, trunc);
         }
+    }
+
+    private BigInteger getRandomizer(BigInteger q, SecureRandom provided)
+    {
+        // Calculate a random multiple of q to add to k. Note that g^q = 1 (mod p), so adding multiple of q to k does not change r.
+        int randomBits = 7;
+
+        return new BigInteger(randomBits, provided != null ? provided : new SecureRandom()).add(BigInteger.valueOf(128)).multiply(q);
     }
 }
