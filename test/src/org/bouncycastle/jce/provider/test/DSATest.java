@@ -21,6 +21,7 @@ import java.security.SecureRandom;
 import java.security.Security;
 import java.security.Signature;
 import java.security.SignatureException;
+import java.security.interfaces.DSAParams;
 import java.security.interfaces.DSAPrivateKey;
 import java.security.interfaces.DSAPublicKey;
 import java.security.spec.DSAParameterSpec;
@@ -989,6 +990,55 @@ public class DSATest
         }
     }
 
+    private void testKeyGeneration(int keysize)
+        throws Exception
+    {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("DSA", "BC");
+        generator.initialize(keysize);
+        KeyPair keyPair = generator.generateKeyPair();
+        DSAPrivateKey priv = (DSAPrivateKey)keyPair.getPrivate();
+        DSAParams params = priv.getParams();
+        isTrue("keysize mismatch", keysize == params.getP().bitLength());
+        // The NIST standard does not fully specify the size of q that
+        // must be used for a given key size. Hence there are differences.
+        // For example if keysize = 2048, then OpenSSL uses 256 bit q's by default,
+        // but the SUN provider uses 224 bits. Both are acceptable sizes.
+        // The tests below simply asserts that the size of q does not decrease the
+        // overall security of the DSA.
+        int qsize = params.getQ().bitLength();
+        switch (keysize)
+        {
+        case 1024:
+            isTrue("Invalid qsize for 1024 bit key:" + qsize, qsize >= 160);
+            break;
+        default:
+            fail("Invalid key size:" + keysize);
+        }
+        // Check the length of the private key.
+        // For example GPG4Browsers or the KJUR library derived from it use
+        // q.bitCount() instead of q.bitLength() to determine the size of the private key
+        // and hence would generate keys that are much too small.
+        isTrue("privkey error", priv.getX().bitLength() >= qsize - 32);
+    }
+
+    private void testKeyGenerationAll()
+        throws Exception
+    {
+        testKeyGeneration(1024);
+    }
+
+    private void testReinitialise()
+        throws Exception
+    {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("DSA", "BC");
+        generator.initialize(512);
+        generator.generateKeyPair();
+        generator.initialize(1024);
+        DSAPrivateKey priv = (DSAPrivateKey)generator.generateKeyPair().getPrivate();
+        int pSize = priv.getParams().getP().bitLength();
+        isTrue("second initialize ignored, p is " + pSize + " bits", pSize == 1024);
+    }
+
     public void performTest()
         throws Exception
     {
@@ -1011,6 +1061,8 @@ public class DSATest
         testParameters();
         testModified();
         testSignatureRandomizer();
+        testKeyGenerationAll();
+        testReinitialise();
     }
 
     protected BigInteger[] derDecode(
