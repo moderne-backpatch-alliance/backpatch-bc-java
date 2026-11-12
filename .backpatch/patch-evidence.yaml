@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.78.1.1-backpatch-00034
+release: 1.78.1.1-backpatch-00035
 baseline: v1.78.1+backpatch.baseline
 fixes:
   - cve: CVE-2025-14813
@@ -275,10 +275,19 @@ fixes:
     artifacts:
       - org.bouncycastle:bcprov-jdk18on
     note: Carried from 1.78.1.1-backpatch-00033; ported onto 1.78.1; fixed at 1.78.1.1-backpatch-00033 (backpatch-bc-java@c8ee9c6).
+  - cve: CVE-2026-58059
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/7bf20eea8c1b71a4d3574b75ba20ccf26ffff36b
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-58059
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/f5a69fc
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk18on
+    note: "New in this release; adapted onto 1.78.1; fixed at 1.78.1.1-backpatch-00035 (backpatch-bc-java@f5a69fc). X500Name escapes RDN values with upstream's linear code (CVE-2026-58059). X509Name.toString, and so the getName() of Bouncy Castle's X509Principal, escapes them with the baseline's code, as upstream does: a value of hundreds of thousands of escaped characters such as commas renders in seconds rather than milliseconds."
 tests:
-  commit: 6613ff492e9b2d6ef0fbe5e85e4bab780c84aeb9
-  command: none in this repository
-  runtime: none, no build or test ran for this release
-  report: carried, see the evidence of the release named in the note
+  commit: f5a69fc29f08742520ece1b31a02ec74704446b8
+  command: BC's Gradle 8.5 build (:prov:jar :util:jar :pkix:jar, pack200 --repack on JDK 8), then :core:test :prov:test :util:test :pkix:test, through <alliance>/work/wave2/items/scripts/bc-1.78.1.sh package and suite; X509LDAPCertStoreTest through the same script's test mode
+  runtime: Azul Zulu (Java 1.8.0_382, BC's JDK 8 test toolchain) running the tests, Gradle 8.5 on Azul Zulu 17.0.10, macOS aarch64
+  report: bcprov-jdk18on-1.78.1.1-backpatch-00035-tests.zip
+  report_sha256: 23bbf2da5049297b3847e8b767e6ea8db8c710bd08a9de87aeba229fedee0174
   result: pass
-  note: "this release is a tooling update, it carries no new fix, nothing ran here; its test provenance is tooling-2026-11-03-bouncycastle-1.78: a tooling update of moderne-backpatch-alliance/backpatch-bc-java at v1.78.1.1-backpatch-00033, whose .backpatch/patch-evidence.yaml says what ran"
+  note: 'the full suite at the tested commit, 1463 tests run, 0 failed, 0 skipped; 1461 in the suite and 2 in X509LDAPCertStoreTest, run separately at the same commit and in the same archive; test data: bc-test-data at r1rv78v1 with pkix/mal-*.crt of 9cc1de59cb and asn1/nested_seq.der and nested_seq_indef.ber of d9db06d19c; the regression tests for CVE-2026-58059 are RDNEscapeTest, RegressionTest, X500NameTest'
