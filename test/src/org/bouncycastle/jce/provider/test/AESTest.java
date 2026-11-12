@@ -1,6 +1,8 @@
 package org.bouncycastle.jce.provider.test;
 
 import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
+import org.bouncycastle.crypto.engines.AESEngine;
+import org.bouncycastle.crypto.params.KeyParameter;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.util.encoders.Hex;
 
@@ -14,6 +16,8 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.security.Key;
 import java.security.Security;
 
@@ -286,9 +290,74 @@ public class AESTest
         }
     }
 
+    private void testNoAESFastEngine()
+        throws Exception
+    {
+        String[] classes = {
+            "org/bouncycastle/jcajce/provider/symmetric/AES$ECB.class",
+            "org/bouncycastle/jcajce/provider/symmetric/AES$CBC.class",
+            "org/bouncycastle/jcajce/provider/symmetric/AES$CFB.class",
+            "org/bouncycastle/jcajce/provider/symmetric/AES$OFB.class",
+            "org/bouncycastle/jcajce/provider/symmetric/AES$AESCMAC.class",
+            "org/bouncycastle/jcajce/provider/symmetric/AES$RFC3211Wrap.class",
+            "org/bouncycastle/jce/provider/JCEBlockCipher$PBEWithAESCBC.class"
+        };
+        byte[] name = "org/bouncycastle/crypto/engines/AESFastEngine".getBytes("US-ASCII");
+
+        for (int i = 0; i != classes.length; i++)
+        {
+            InputStream in = AESTest.class.getClassLoader().getResourceAsStream(classes[i]);
+            if (in == null)
+            {
+                fail("class not found: " + classes[i]);
+            }
+            ByteArrayOutputStream bOut = new ByteArrayOutputStream();
+            byte[] buf = new byte[4096];
+            int len;
+            while ((len = in.read(buf)) > 0)
+            {
+                bOut.write(buf, 0, len);
+            }
+            in.close();
+            byte[] bytes = bOut.toByteArray();
+
+            for (int j = 0; j + name.length <= bytes.length; j++)
+            {
+                int k = 0;
+                while (k < name.length && bytes[j + k] == name[k])
+                {
+                    k++;
+                }
+                if (k == name.length)
+                {
+                    fail(classes[i] + " still uses AESFastEngine");
+                }
+            }
+        }
+    }
+
+    private void testPerInstanceSBox()
+        throws Exception
+    {
+        Field f = AESEngine.class.getDeclaredField("s");
+        f.setAccessible(true);
+        AESEngine a = new AESEngine();
+        AESEngine b = new AESEngine();
+        KeyParameter key = new KeyParameter(new byte[16]);
+        a.init(true, key);
+        b.init(true, key);
+        if (f.get(a) == null || f.get(a) == f.get(b))
+        {
+            fail("AESEngine S-box not allocated per instance");
+        }
+    }
+
     public void performTest()
         throws Exception
     {
+        testNoAESFastEngine();
+        testPerInstanceSBox();
+
         for (int i = 0; i != cipherTests.length; i += 4)
         {
             test(Integer.parseInt(cipherTests[i]), 

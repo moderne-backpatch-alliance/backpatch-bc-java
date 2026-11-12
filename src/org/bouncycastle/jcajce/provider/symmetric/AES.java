@@ -10,7 +10,7 @@ import javax.crypto.spec.IvParameterSpec;
 import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
 import org.bouncycastle.crypto.BufferedBlockCipher;
 import org.bouncycastle.crypto.CipherKeyGenerator;
-import org.bouncycastle.crypto.engines.AESFastEngine;
+import org.bouncycastle.crypto.engines.AESEngine;
 import org.bouncycastle.crypto.engines.AESWrapEngine;
 import org.bouncycastle.crypto.engines.RFC3211WrapEngine;
 import org.bouncycastle.crypto.macs.CMac;
@@ -38,7 +38,7 @@ public final class AES
     {
         public ECB()
         {
-            super(new AESFastEngine());
+            super(new AESEngine());
         }
     }
 
@@ -47,7 +47,7 @@ public final class AES
     {
         public CBC()
         {
-            super(new CBCBlockCipher(new AESFastEngine()), 128);
+            super(new CBCBlockCipher(new AESEngine()), 128);
         }
     }
 
@@ -56,7 +56,7 @@ public final class AES
     {
         public CFB()
         {
-            super(new BufferedBlockCipher(new CFBBlockCipher(new AESFastEngine(), 128)), 128);
+            super(new BufferedBlockCipher(new CFBBlockCipher(new AESEngine(), 128)), 128);
         }
     }
 
@@ -65,7 +65,7 @@ public final class AES
     {
         public OFB()
         {
-            super(new BufferedBlockCipher(new OFBBlockCipher(new AESFastEngine(), 128)), 128);
+            super(new BufferedBlockCipher(new OFBBlockCipher(new AESEngine(), 128)), 128);
         }
     }
 
@@ -74,7 +74,7 @@ public final class AES
     {
         public AESCMAC()
         {
-            super(new CMac(new AESFastEngine()));
+            super(new CMac(new AESEngine()));
         }
     }
 
@@ -92,7 +92,7 @@ public final class AES
     {
         public RFC3211Wrap()
         {
-            super(new RFC3211WrapEngine(new AESFastEngine()), 16);
+            super(new RFC3211WrapEngine(new AESEngine()), 16);
         }
     }
 
