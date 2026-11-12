@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.69.1-backpatch-00037
+release: 1.69.1-backpatch-00038
 baseline: v1.69+backpatch.baseline
 fixes:
   - cve: CVE-2024-29857
@@ -295,10 +295,19 @@ fixes:
     artifacts:
       - org.bouncycastle:bctls-jdk15on
     note: Carried from 1.69.1-backpatch-00036; ported onto 1.69; fixed at 1.69.1-backpatch-00036 (backpatch-bc-java@c2691cf..d1bf33a).
+  - cve: CVE-2026-58059
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/7bf20eea8c1b71a4d3574b75ba20ccf26ffff36b
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-58059
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/bdf598d
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+    note: "New in this release; adapted onto 1.69; fixed at 1.69.1-backpatch-00038 (backpatch-bc-java@bdf598d). X500Name escapes RDN values with upstream's linear code (CVE-2026-58059). X509Name.toString, and so the getName() of Bouncy Castle's X509Principal, escapes them with the baseline's code, as upstream does: a value of hundreds of thousands of escaped characters such as commas renders in seconds rather than milliseconds."
 tests:
-  commit: c14714db2315979e881a1b3a1b4bae81805fa1d3
-  command: none in this repository
-  runtime: none, no build or test ran for this release
-  report: carried, see the evidence of the release named in the note
+  commit: bdf598d6510f56ccc6a03d75abc27f4b53261166
+  command: BC's Ant release build (ant/bc+-build.xml, JDK 8, -source/-target 1.5, multi-release classes by OpenJDK 9.0.4 and Temurin 11.0.13 in a linux/amd64 container, and Zulu 15.0.2), then ant junit over AllTests of core, prov, util and pkix (bc-1.70-suite.xml) on JDK 8, through <alliance>/work/wave2/items/scripts/bc-1.70-ant.sh package and suite; X509LDAPCertStoreTest through the same script's test mode on JDK 8 and 11
+  runtime: Azul Zulu (Java 1.8.0_382, and 11.0.20 for the JDK 11 run of X509LDAPCertStoreTest) running the tests, macOS aarch64
+  report: bcprov-jdk15on-1.69.1-backpatch-00038-tests.zip
+  report_sha256: 6e5cd788b938a078f47cc01662c357cb05571f13d799069660d4985fe6582c14
   result: pass
-  note: "this release is a tooling update, it carries no new fix, nothing ran here; its test provenance is tooling-2026-11-03-bouncycastle-1.69: a tooling update of moderne-backpatch-alliance/backpatch-bc-java at v1.69.1-backpatch-00036, whose .backpatch/patch-evidence.yaml says what ran"
+  note: the full suite at the tested commit, 1136 tests run, 0 failed, 0 skipped; 1132 in the suite and 4 in X509LDAPCertStoreTest, run separately at the same commit on JDK 8 and 11 and in the same archive; the regression tests for CVE-2026-58059 are RDNEscapeTest, RegressionTest, X500NameTest
