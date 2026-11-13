@@ -1,6 +1,5 @@
 package org.bouncycastle.asn1;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 /**
@@ -120,10 +119,31 @@ public class DERExternal
         return true;
     }
 
+    DERSequence buildSequence()
+    {
+        ASN1EncodableVector v = new ASN1EncodableVector();
+        if (directReference != null)
+        {
+            v.add(directReference);
+        }
+        if (indirectReference != null)
+        {
+            v.add(indirectReference);
+        }
+        if (dataValueDescriptor != null)
+        {
+            v.add(dataValueDescriptor.toDERObject());
+        }
+
+        v.add(new DERTaggedObject(true, encoding, externalContent));
+
+        return new DERSequence(v);
+    }
+
     int encodedLength()
         throws IOException
     {
-        return this.getEncoded().length;
+        return buildSequence().encodedLength();
     }
 
     /* (non-Javadoc)
@@ -132,22 +152,9 @@ public class DERExternal
     void encode(ASN1OutputStream out)
         throws IOException
     {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        if (directReference != null)
-        {
-            baos.write(directReference.getEncoded(ASN1Encoding.DER));
-        }
-        if (indirectReference != null)
-        {
-            baos.write(indirectReference.getEncoded(ASN1Encoding.DER));
-        }
-        if (dataValueDescriptor != null)
-        {
-            baos.write(dataValueDescriptor.getEncoded(ASN1Encoding.DER));
-        }
-        DERTaggedObject obj = new DERTaggedObject(true, encoding, externalContent);
-        baos.write(obj.getEncoded(ASN1Encoding.DER));
-        out.writeEncoded(BERTags.CONSTRUCTED, BERTags.EXTERNAL, baos.toByteArray());
+        byte[] encoded = buildSequence().getEncoded(ASN1Encoding.DER);
+        encoded[0] = (byte)(BERTags.CONSTRUCTED | BERTags.EXTERNAL);
+        out.write(encoded);
     }
 
     /* (non-Javadoc)

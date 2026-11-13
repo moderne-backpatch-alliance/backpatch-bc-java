@@ -70,7 +70,8 @@ public class RegressionTest
         new ParsingTest(),
         new GeneralNameTest(),
         new RFC4519Test(),
-        new SetSortCacheTest()
+        new SetSortCacheTest(),
+        new ExternalNestingTest()
     };
 
     public static void main(
