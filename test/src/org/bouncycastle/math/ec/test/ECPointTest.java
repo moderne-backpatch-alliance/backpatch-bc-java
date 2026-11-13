@@ -414,6 +414,56 @@ public class ECPointTest extends TestCase
         assertEquals("Error decoding compressed point", p, decComp);
     }
 
+    public void testLargeMInF2m()
+    {
+        int m = 2048;
+        int k1 = 1;
+        BigInteger aTpb = new BigInteger("1000", 2);
+        BigInteger bTpb = new BigInteger("1001", 2);
+        BigInteger n = new BigInteger("23");
+        BigInteger h = new BigInteger("1");
+
+        try
+        {
+            ECCurve.F2m curve = new ECCurve.F2m(m, k1, aTpb, bTpb, n, h);
+        }
+        catch (IllegalArgumentException e)
+        {
+            assertEquals("field size out of range: 2048", e.getMessage());
+        }
+    }
+
+    public void testF2mFieldSizeBound()
+    {
+        BigInteger aTpb = new BigInteger("1000", 2);
+        BigInteger bTpb = new BigInteger("1001", 2);
+        BigInteger n = new BigInteger("23");
+        BigInteger h = new BigInteger("1");
+
+        try
+        {
+            new ECCurve.F2m(1143, 1, aTpb, bTpb, n, h);
+            fail("F2m curve with m = 1143 accepted");
+        }
+        catch (IllegalArgumentException e)
+        {
+            assertEquals("field size out of range: 1143", e.getMessage());
+        }
+
+        new ECCurve.F2m(1142, 1, aTpb, bTpb, n, h);
+        new ECCurve.F2m(571, 2, 5, 10, aTpb, bTpb, n, h);
+
+        System.setProperty("org.bouncycastle.ec.max_f2m_field_size", "2048");
+        try
+        {
+            new ECCurve.F2m(2048, 1, aTpb, bTpb, n, h);
+        }
+        finally
+        {
+            System.clearProperty("org.bouncycastle.ec.max_f2m_field_size");
+        }
+    }
+
     /**
      * Calls <code>implTestAddSubtract()</code>,
      * <code>implTestMultiply</code> and <code>implTestEncoding</code> for
