@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.47.1-backpatch-00002
+release: 1.47.1-backpatch-00003
 baseline: v1.47+backpatch.baseline
 fixes:
   - cve: CVE-2013-1624
@@ -18,12 +18,28 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: New in this release; ported onto 1.47; fixed at 1.47.1-backpatch-00002 (backpatch-bc-java@cac25cf).
+    note: Carried from 1.47.1-backpatch-00002; ported onto 1.47; fixed at 1.47.1-backpatch-00002 (backpatch-bc-java@cac25cf).
+  - cve: CVE-2016-1000338
+    upstream_fix_url: https://github.com/advisories/GHSA-4vhj-98r6-424h
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2016-1000338
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/eecbbad
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+    note: New in this release; ported onto 1.47; fixed at 1.47.1-backpatch-00003 (backpatch-bc-java@eecbbad). bcprov now accepts only exact DER for DSA and ECDSA signatures and refuses non-minimally encoded ASN.1 INTEGER and ENUMERATED values wherever it parses them (CVE-2016-1000338, CVE-2016-1000342). If your app verifies DSA or ECDSA signatures from a signer that emits BER or pads its integers, `Signature.verify` throws `SignatureException("error decoding signature bytes.")`; if it parses certificates, CRLs or time-stamp responses whose integers carry a redundant leading `00` or `FF` octet, parsing fails with `ASN1Exception("corrupted stream detected")` caused by `IllegalArgumentException("malformed integer")`. This release has no setting to relax either check, so the data has to be produced as correct DER by the signer or issuer. Re-encoding a signature to DER yourself before calling `verify` gets it through, but brings back the signature malleability the fix closes.
+  - cve: CVE-2016-1000342
+    upstream_fix_url: https://github.com/sake/bouncycastle-java/commit/843c2e60f67d71faf81d236f448ebbe56c62c647
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2016-1000342
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/eecbbad
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+    note: New in this release; ported onto 1.47; fixed at 1.47.1-backpatch-00003 (backpatch-bc-java@eecbbad). bcprov now accepts only exact DER for DSA and ECDSA signatures and refuses non-minimally encoded ASN.1 INTEGER and ENUMERATED values wherever it parses them (CVE-2016-1000338, CVE-2016-1000342). If your app verifies DSA or ECDSA signatures from a signer that emits BER or pads its integers, `Signature.verify` throws `SignatureException("error decoding signature bytes.")`; if it parses certificates, CRLs or time-stamp responses whose integers carry a redundant leading `00` or `FF` octet, parsing fails with `ASN1Exception("corrupted stream detected")` caused by `IllegalArgumentException("malformed integer")`. This release has no setting to relax either check, so the data has to be produced as correct DER by the signer or issuer. Re-encoding a signature to DER yourself before calling `verify` gets it through, but brings back the signature malleability the fix closes.
 tests:
-  commit: cac25cf48094a374bd4f4bab997147da650bfb94
+  commit: eecbbad641a3bcbd9f46210377977566821af794
   command: "bc-perentry.sh: the tag's bc+-build.xml builds through a driver that only sets javac; then BcSuiteRunner runs the suites the tag's test target selects (every AllTests, nist/Nist*Test, rsa3/RSA3CertTest), with each RegressionTest entry of asn1, crypto, jce.provider and openpgp as its own test org.bouncycastle.jce.provider.test.CertTest#perform,org.bouncycastle.jce.provider.test.CertPathValidatorTest#perform,org.bouncycastle.jce.provider.test.CertPathBuilderTest#perform,org.bouncycastle.jce.provider.test.nist.NistCertPathTest#testInvalidNegativeSerialNumberTest15,org.bouncycastle.i18n.test.LocalizedMessageTest#testGetEntry,org.bouncycastle.crypto.tls.test.BasicTlsTest#testConnection"
   runtime: openjdk version 1.8.0_382 (Zulu) for the tests, Apache Ant 1.10 with the tag's build files; main classes compiled by Zulu 6u42's javac; javax.mail 1.6.2 and activation 1.1 on the test classpath
-  report: bcprov-jdk15on-1.47.1-backpatch-00002-tests.zip
-  report_sha256: 6e68402659dabbb13f45964a7f3dd27e098722e6d23b709aec0bf554038f435d
+  report: bcprov-jdk15on-1.47.1-backpatch-00003-tests.zip
+  report_sha256: 6611736f432b7b7f7a58ac99ec02dfa50a1fa6ac33abee256560c16852a3e9fa
   result: pass
   note: "898 tests at the patch commit, 0 of them skipped by the suite, 0 failed, 0 errors. Left out of the run as accepted exceptions: org.bouncycastle.jce.provider.test.CertTest#perform (BC 1.47's certificate hashCode differs from the JDK's on Java 7 and later); org.bouncycastle.jce.provider.test.CertPathValidatorTest#perform (depends on the machine's time zone; passes with Australia/Melbourne); org.bouncycastle.jce.provider.test.CertPathBuilderTest#perform (depends on the machine's time zone; passes with Australia/Melbourne); org.bouncycastle.jce.provider.test.nist.NistCertPathTest#testInvalidNegativeSerialNumberTest15 (depends on the machine's time zone; passes with Australia/Melbourne); org.bouncycastle.i18n.test.LocalizedMessageTest#testGetEntry (JDK 7 and later locale data); org.bouncycastle.crypto.tls.test.BasicTlsTest#testConnection (the JDK's TLS policy (jdk.tls.disabledAlgorithms); passes with it emptied). Main classes compiled with Zulu 6u42's javac at the build's source and target; test classes compiled and run on Zulu 8. The suite runs every RegressionTest entry of asn1, crypto, jce.provider and openpgp as its own test instead of the tag's four AllTests methods that stop at their first failing entry, the runner the weekend's port also used; the accepted exceptions are single entries or methods. Known flake: crypto.signers NTRUSignerTest#testInitUpdateSign failed once at the baseline preflight and passed on its rerun (Peter's flaky rule); no fix touches NTRU."
