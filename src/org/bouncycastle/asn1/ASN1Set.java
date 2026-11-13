@@ -10,6 +10,7 @@ abstract public class ASN1Set
 {
     private Vector set = new Vector();
     private boolean isSorted = false;
+    private Vector sortedSet = null;
 
     /**
      * return an ASN1Set from the given object.
@@ -291,6 +292,16 @@ abstract public class ASN1Set
         }
         else
         {
+            ASN1Set derSet = new DERSet();
+
+            if (sortedSet != null)
+            {
+                derSet.set = sortedSet;
+                derSet.isSorted = true;
+
+                return derSet;
+            }
+
             Vector v = new Vector();
 
             for (int i = 0; i != set.size(); i++)
@@ -298,11 +309,11 @@ abstract public class ASN1Set
                 v.addElement(set.elementAt(i));
             }
 
-            ASN1Set derSet = new DERSet();
-
             derSet.set = v;
 
             derSet.sort();
+
+            sortedSet = v;
 
             return derSet;
         }
@@ -313,6 +324,8 @@ abstract public class ASN1Set
         ASN1Set derSet = new DLSet();
 
         derSet.set = this.set;
+        derSet.isSorted = this.isSorted;
+        derSet.sortedSet = this.sortedSet;
 
         return derSet;
     }
