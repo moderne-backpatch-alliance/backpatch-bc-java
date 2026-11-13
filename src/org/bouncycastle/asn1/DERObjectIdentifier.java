@@ -9,6 +9,10 @@ import org.bouncycastle.util.Arrays;
 public class DERObjectIdentifier
     extends ASN1Primitive
 {
+    // OpenJDK's limit: unbounded contents are a denial of service on conversion to the decimal string form.
+    private static final int MAX_CONTENTS_LENGTH = 4096;
+    private static final int MAX_IDENTIFIER_LENGTH = MAX_CONTENTS_LENGTH * 4 + 1;
+
     String      identifier;
 
     private     byte[] body;
@@ -62,6 +66,8 @@ public class DERObjectIdentifier
     DERObjectIdentifier(
         byte[]  bytes)
     {
+        checkContentsLength(bytes.length);
+
         StringBuffer    objId = new StringBuffer();
         long            value = 0;
         BigInteger      bigValue = null;
@@ -123,12 +129,26 @@ public class DERObjectIdentifier
     public DERObjectIdentifier(
         String  identifier)
     {
+        if (identifier.length() > MAX_IDENTIFIER_LENGTH)
+        {
+            throw new IllegalArgumentException("exceeded OID contents length limit");
+        }
         if (!isValidIdentifier(identifier))
         {
             throw new IllegalArgumentException("string " + identifier + " not an OID");
         }
 
         this.identifier = identifier;
+
+        checkContentsLength(getBody().length);
+    }
+
+    static void checkContentsLength(int contentsLength)
+    {
+        if (contentsLength > MAX_CONTENTS_LENGTH)
+        {
+            throw new IllegalArgumentException("exceeded OID contents length limit");
+        }
     }
 
     public String getId()

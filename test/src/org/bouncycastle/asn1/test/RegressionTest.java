@@ -71,7 +71,8 @@ public class RegressionTest
         new GeneralNameTest(),
         new RFC4519Test(),
         new SetSortCacheTest(),
-        new ExternalNestingTest()
+        new ExternalNestingTest(),
+        new OIDLengthLimitTest()
     };
 
     public static void main(
