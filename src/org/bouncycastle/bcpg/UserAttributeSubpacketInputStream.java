@@ -10,6 +10,11 @@ import org.bouncycastle.bcpg.attr.ImageAttribute;
 public class UserAttributeSubpacketInputStream
     extends InputStream implements UserAttributeSubpacketTags
 {
+    /**
+     * Hard upper bound on a single user-attribute subpacket body, checked before allocating.
+     */
+    public static final int MAX_SUBPACKET_LEN = 2 * 1024 * 1024;
+
     InputStream    in;
     
     public UserAttributeSubpacketInputStream(
@@ -90,6 +95,11 @@ public class UserAttributeSubpacketInputStream
         else
         {
             // TODO Error?
+        }
+
+        if (bodyLen > MAX_SUBPACKET_LEN)
+        {
+            throw new IOException("Body length octet (" + bodyLen + ") exceeds max user attribute subpacket length (" + MAX_SUBPACKET_LEN + ").");
         }
 
        int        tag = in.read();
