@@ -634,11 +634,13 @@ public class PKIXNameConstraintValidator
 
     private boolean emailIsConstrained(String email, String constraint)
     {
-        String sub = email.substring(email.indexOf('@') + 1);
-        // a particular mailbox
+        String sub = stripTrailingDot(email.substring(email.indexOf('@') + 1));
+        // a particular mailbox. RFC 1034 root-label trailing dot: strip it from the rfc822Name host
+        // so a trailing dot (e.g. "user@bank.com.") cannot slip a leaf past an excluded/permitted
+        // "bank.com" constraint.
         if (constraint.indexOf('@') != -1)
         {
-            if (email.equalsIgnoreCase(constraint))
+            if (stripTrailingDot(email).equalsIgnoreCase(stripTrailingDot(constraint)))
             {
                 return true;
             }
@@ -646,7 +648,7 @@ public class PKIXNameConstraintValidator
         // on particular host
         else if (!(constraint.charAt(0) == '.'))
         {
-            if (sub.equalsIgnoreCase(constraint))
+            if (sub.equalsIgnoreCase(stripTrailingDot(constraint)))
             {
                 return true;
             }
@@ -1403,11 +1405,13 @@ public class PKIXNameConstraintValidator
 
     private boolean isUriConstrained(String uri, String constraint)
     {
-        String host = extractHostFromURL(uri);
+        // Strip an RFC 1034 root-label trailing dot from the host, so a URI host such as
+        // "competitor.example." cannot slip past a "competitor.example" constraint.
+        String host = stripTrailingDot(extractHostFromURL(uri));
         // a host
         if (!constraint.startsWith("."))
         {
-            if (host.equalsIgnoreCase(constraint))
+            if (host.equalsIgnoreCase(stripTrailingDot(constraint)))
             {
                 return true;
             }
@@ -1420,6 +1424,17 @@ public class PKIXNameConstraintValidator
         }
 
         return false;
+    }
+
+    private static String stripTrailingDot(String s)
+    {
+        // length > 1 so a single bare "." (theoretically the empty-label
+        // root) is preserved rather than reduced to "".
+        if (s != null && s.length() > 1 && s.charAt(s.length() - 1) == '.')
+        {
+            return s.substring(0, s.length() - 1);
+        }
+        return s;
     }
 
     private static String extractHostFromURL(String url)
