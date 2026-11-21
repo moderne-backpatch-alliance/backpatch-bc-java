@@ -22,6 +22,7 @@ import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.ContentInfo;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.asn1.pkcs.Pfx;
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.X500NameBuilder;
@@ -58,6 +59,7 @@ import org.bouncycastle.pkcs.bc.BcPKCS12PBEOutputEncryptorBuilder;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS12SafeBagBuilder;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS8EncryptedPrivateKeyInfoBuilder;
 import org.bouncycastle.util.Arrays;
+import org.bouncycastle.util.encoders.Hex;
 
 public class PfxPduTest
     extends TestCase
@@ -276,6 +278,30 @@ public class PfxPduTest
     public void setUp()
     {
         Security.addProvider(new BouncyCastleProvider());
+    }
+
+    public void testDodgyInputs()
+        throws Exception
+    {
+        byte[] negIt = Hex.decode("3049020103301106092a864879f70d010706a004040230003031302130" +
+            "0906052b0e03021a0500041400000100000000000000000000000000" +
+            "00000000040800000000000000000202f300");
+
+        PKCS12PfxPdu pfx = new PKCS12PfxPdu(Pfx.getInstance(negIt));
+
+        // The MacData carries a negative iteration count. The PKCS#12-PBE MAC key derivation now
+        // routes the wire-supplied count through PKCS12Util.validateIterationCount (as the keystore
+        // and PBMAC1 paths already did), so a negative count is rejected cleanly rather than driving
+        // a zero-round KDF that silently produces a weak MAC key.
+        try
+        {
+            pfx.isMacValid(new BcPKCS12MacCalculatorBuilderProviderBuilder(), passwd);
+            fail("negative iteration count not rejected");
+        }
+        catch (IllegalStateException e)
+        {
+            assertTrue(e.getMessage().endsWith("negative iteration count found"));
+        }
     }
 
     public void testPfxPdu()
