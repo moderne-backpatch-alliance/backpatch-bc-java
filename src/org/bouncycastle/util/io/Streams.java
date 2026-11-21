@@ -1,6 +1,7 @@
 package org.bouncycastle.util.io;
 
 import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -54,6 +55,39 @@ public final class Streams
             totalRead += numRead;
         }
         return totalRead;
+    }
+
+    public static byte[] readLenBytesFully(InputStream inStr, int len)
+        throws IOException
+    {
+        if (len < 0)
+        {
+            throw new IllegalArgumentException("len cannot be negative");
+        }
+
+        // Grow towards len as bytes actually arrive; do not replace with new byte[len] up front:
+        // len may be untrusted, and a short input must not drive a large allocation.
+        byte[] bytes = new byte[Math.min(len, BUFFER_SIZE)];
+        int count = 0;
+        while (count < len)
+        {
+            if (count == bytes.length)
+            {
+                int expandedLength = (int)Math.min((long)len, 8L * bytes.length);
+                byte[] expanded = new byte[expandedLength];
+                System.arraycopy(bytes, 0, expanded, 0, count);
+                bytes = expanded;
+            }
+
+            int numRead = inStr.read(bytes, count, bytes.length - count);
+            if (numRead < 0)
+            {
+                throw new EOFException("premature end of stream");
+            }
+            count += numRead;
+        }
+
+        return bytes;
     }
 
     public static void pipeAll(InputStream inStr, OutputStream outStr)

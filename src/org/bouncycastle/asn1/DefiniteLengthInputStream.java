@@ -95,12 +95,9 @@ class DefiniteLengthInputStream
             return EMPTY_BYTES;
         }
 
-        byte[] bytes = new byte[_remaining];
-        if ((_remaining -= Streams.readFully(_in, bytes)) != 0)
-        {
-            throw new EOFException("DEF length " + _originalLength + " object truncated by " + _remaining);
-        }
-        setParentEofDetect(true);
-        return bytes;
+        // Read through this stream (not _in): read(byte[], int, int) keeps the _remaining / parent-EOF
+        // bookkeeping and the "DEF length ... truncated by ..." EOFException, while readLenBytesFully grows
+        // the buffer as bytes arrive instead of allocating the declared length up front (CWE-789).
+        return Streams.readLenBytesFully(this, (int)_remaining);
     }
 }
