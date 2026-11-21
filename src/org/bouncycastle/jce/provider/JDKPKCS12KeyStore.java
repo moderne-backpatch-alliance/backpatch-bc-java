@@ -71,6 +71,7 @@ import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.asn1.x509.X509Extensions;
 import org.bouncycastle.asn1.x509.X509ObjectIdentifiers;
 import org.bouncycastle.jcajce.provider.symmetric.util.BCPBEKey;
+import org.bouncycastle.jce.PKCS12Util;
 import org.bouncycastle.jce.interfaces.BCKeyStore;
 import org.bouncycastle.jce.interfaces.PKCS12BagAttributeCarrier;
 import org.bouncycastle.util.Arrays;
@@ -558,7 +559,7 @@ public class JDKPKCS12KeyStore
                                                 algorithm, bcProvider);
             PBEParameterSpec    defParams = new PBEParameterSpec(
                                                 pbeParams.getIV(),
-                                                pbeParams.getIterations().intValue());
+                                                PKCS12Util.validateIterationCount(pbeParams.getIterations()));
 
             SecretKey           k = keyFact.generateSecret(pbeSpec);
             
@@ -595,7 +596,7 @@ public class JDKPKCS12KeyStore
                                                 algorithm, bcProvider);
             PBEParameterSpec    defParams = new PBEParameterSpec(
                                                 pbeParams.getIV(),
-                                                pbeParams.getIterations().intValue());
+                                                PKCS12Util.validateIterationCount(pbeParams.getIterations()));
 
             Cipher cipher = Cipher.getInstance(algorithm, bcProvider);
 
@@ -628,7 +629,7 @@ public class JDKPKCS12KeyStore
             SecretKeyFactory keyFact = SecretKeyFactory.getInstance(algorithm, bcProvider);
             PBEParameterSpec defParams = new PBEParameterSpec(
                 pbeParams.getIV(),
-                pbeParams.getIterations().intValue());
+                PKCS12Util.validateIterationCount(pbeParams.getIterations()));
             BCPBEKey key = (BCPBEKey) keyFact.generateSecret(pbeSpec);
 
             key.setTryWrongPKCS12Zero(wrongPKCS12Zero);
@@ -686,7 +687,7 @@ public class JDKPKCS12KeyStore
             DigestInfo                  dInfo = mData.getMac();
             AlgorithmIdentifier         algId = dInfo.getAlgorithmId();
             byte[]                      salt = mData.getSalt();
-            int                         itCount = mData.getIterationCount().intValue();
+            int                         itCount = PKCS12Util.validateIterationCount(mData.getIterationCount());
 
             byte[]  data = ((ASN1OctetString)info.getContent()).getOctets();
 
