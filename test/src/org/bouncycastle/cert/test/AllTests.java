@@ -46,6 +46,7 @@ public class AllTests
 
         suite.addTestSuite(AllTests.class);
         suite.addTest(ConverterTest.suite());
+        suite.addTestSuite(CheckNameConstraintsTest.class);
 
         return suite;
     }
