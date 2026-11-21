@@ -314,6 +314,60 @@ public class DHTest
         kpGen.init(params2);
     }
 
+    private void testMaliciousMessage()
+    {
+        // Both peer-supplied values to CalculateAgreement are raised to our (potentially static)
+        // private key, so a peer sending a small-order or out-of-range element could mount a
+        // small-subgroup confinement attack and recover our private key. Both must be validated as
+        // DH public values, even when the other value is well-formed and uses our own parameters.
+        DHKeyPairGenerator kpGen = getDHKeyPairGenerator(g512, p512);
+        DHParameters dhParams = ((DHPublicKeyParameters)kpGen.generateKeyPair().getPublic()).getParameters();
+
+        DHAgreement dh = new DHAgreement();
+        dh.init(kpGen.generateKeyPair().getPrivate());
+        dh.calculateMessage();
+
+        DHPublicKeyParameters goodPub = (DHPublicKeyParameters)kpGen.generateKeyPair().getPublic();
+        BigInteger goodMessage = ((DHPublicKeyParameters)kpGen.generateKeyPair().getPublic()).getY();
+
+        // p-1 has order 2; it is also out of the accepted (1, p-1) range.
+        BigInteger orderTwo = dhParams.getP().subtract(BigInteger.valueOf(1));
+
+        // A malicious 'message' must be rejected even when 'pub' is well-formed.
+        BigInteger[] badMessages = new BigInteger[]{ BigInteger.valueOf(1), orderTwo, dhParams.getP() };
+        for (int i = 0; i < badMessages.length; ++i)
+        {
+            BigInteger badMessage = badMessages[i];
+            try
+            {
+                dh.calculateAgreement(goodPub, badMessage);
+                fail("DHAgreement accepted malicious message " + badMessage);
+            }
+            catch (IllegalArgumentException e)
+            {
+                // expected
+            }
+        }
+
+        // A malicious 'pub' must be rejected even when 'message' is well-formed. DHWeakPubKey passes
+        // construction-time validation with a dummy Y, then returns a weak value from the overridden
+        // (virtual) Y property -- so CalculateAgreement must re-validate rather than trust the type.
+        BigInteger[] weakYs = new BigInteger[]{ BigInteger.valueOf(1), orderTwo, dhParams.getP() };
+        for (int i = 0; i < weakYs.length; ++i)
+        {
+            BigInteger weakY = weakYs[i];
+            try
+            {
+                dh.calculateAgreement(new DHWeakPubKey(weakY, dhParams), goodMessage);
+                fail("DHAgreement accepted malicious public key " + weakY);
+            }
+            catch (IllegalArgumentException e)
+            {
+                // expected
+            }
+        }
+    }
+
     public void performTest()
     {
         testDHBasic(512, 0, g512, p512);
@@ -329,6 +383,8 @@ public class DHTest
         testDH(1024, g1024, p1024);
 
         testBounds();
+
+        testMaliciousMessage();
 
         //
         // generation test.
@@ -410,5 +466,23 @@ public class DHTest
         String[]    args)
     {
         runTest(new DHTest());
+    }
+
+    private static class DHWeakPubKey
+        extends DHPublicKeyParameters
+    {
+        private final BigInteger weakY;
+
+        DHWeakPubKey(BigInteger weakY, DHParameters parameters)
+        {
+            super(BigInteger.valueOf(2), parameters);
+
+            this.weakY = weakY;
+        }
+
+        public BigInteger getY()
+        {
+            return weakY;
+        }
     }
 }

@@ -80,10 +80,17 @@ public class DHAgreement
      * calculate the next message in the agreement sequence. In this case
      * this will represent the shared secret.
      */
-    public BigInteger calculateAgreement(
-        DHPublicKeyParameters   pub,
-        BigInteger              message)
+    public BigInteger calculateAgreement(DHPublicKeyParameters pub, BigInteger message)
     {
+        if (pub == null)
+        {
+            throw new NullPointerException("'pub' cannot be null");
+        }
+        if (message == null)
+        {
+            throw new NullPointerException("'message' cannot be null");
+        }
+
         if (!pub.getParameters().equals(dhParams))
         {
             throw new IllegalArgumentException("Diffie-Hellman public key has wrong parameters.");
@@ -91,12 +98,21 @@ public class DHAgreement
 
         BigInteger p = dhParams.getP();
 
-        BigInteger result = pub.getY().modPow(privateValue, p);
+        // Both peer values are raised to our private keys, so both are validated as DH public values.
+        // A subclass can override getY() to skip the check made at construction, so only the exact
+        // base type is trusted.
+        BigInteger peerMessage = new DHPublicKeyParameters(message, dhParams).getY();
+
+        BigInteger peerY = pub.getClass() == DHPublicKeyParameters.class
+            ? pub.getY()
+            : new DHPublicKeyParameters(pub.getY(), dhParams).getY();
+
+        BigInteger result = peerY.modPow(privateValue, p);
         if (result.compareTo(ONE) == 0)
         {
             throw new IllegalStateException("Shared key can't be 1");
         }
 
-        return message.modPow(key.getX(), p).multiply(result).mod(p);
+        return peerMessage.modPow(key.getX(), p).multiply(result).mod(p);
     }
 }
