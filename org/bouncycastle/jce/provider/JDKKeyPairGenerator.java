@@ -220,6 +220,7 @@ public abstract class JDKKeyPairGenerator
 
             this.strength = strength;
             this.random = random;
+            this.initialised = false;
         }
 
         public void initialize(
