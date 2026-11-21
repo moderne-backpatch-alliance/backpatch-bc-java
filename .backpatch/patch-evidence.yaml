@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.47.1-backpatch-00021
+release: 1.47.1-backpatch-00022
 baseline: v1.47+backpatch.baseline
 fixes:
   - cve: CVE-2013-1624
@@ -178,12 +178,20 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: New in this release; ported onto 1.47; fixed at 1.47.1-backpatch-00021 (backpatch-bc-java@43b4818).
+    note: Carried from 1.47.1-backpatch-00021; ported onto 1.47; fixed at 1.47.1-backpatch-00021 (backpatch-bc-java@43b4818).
+  - cve: CVE-2026-71888
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/dcb683b32b440f1beb1d2276a34930164281fb95
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-71888
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/31f69d2
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+    note: New in this release; ported onto 1.47; fixed at 1.47.1-backpatch-00022 (backpatch-bc-java@31f69d2).
 tests:
-  commit: 43b4818cb9e1ba9b688a7b1a6eb5f1b704d1d762
+  commit: 31f69d29ecf3dac406149a19b9a2b042a37ed90e
   command: "bc-perentry.sh: the tag's bc+-build.xml builds through a driver that only sets javac; then BcSuiteRunner runs the suites the tag's test target selects (every AllTests, nist/Nist*Test, rsa3/RSA3CertTest), with each RegressionTest entry of asn1, crypto, jce.provider and openpgp as its own test org.bouncycastle.jce.provider.test.CertTest#perform,org.bouncycastle.jce.provider.test.CertPathValidatorTest#perform,org.bouncycastle.jce.provider.test.CertPathBuilderTest#perform,org.bouncycastle.jce.provider.test.nist.NistCertPathTest#testInvalidNegativeSerialNumberTest15,org.bouncycastle.i18n.test.LocalizedMessageTest#testGetEntry,org.bouncycastle.crypto.tls.test.BasicTlsTest#testConnection"
   runtime: openjdk version 1.8.0_382 (Zulu) for the tests, Apache Ant 1.10 with the tag's build files; main classes compiled by Zulu 6u42's javac; javax.mail 1.6.2 and activation 1.1 on the test classpath
-  report: bcprov-jdk15on-1.47.1-backpatch-00021-tests.zip
-  report_sha256: ac92c00a0d74a09cf4501f64928859911431c96fdb221d69c443bcea65630f9c
+  report: bcprov-jdk15on-1.47.1-backpatch-00022-tests.zip
+  report_sha256: 926c3bbdf00bc91bbaa2782739c68c87927bc360c5597de08b98c735b06c9c7d
   result: pass
-  note: "907 tests at the patch commit, 0 of them skipped by the suite, 0 failed, 0 errors. Left out of the run as accepted exceptions: org.bouncycastle.jce.provider.test.CertTest#perform (BC 1.47's certificate hashCode differs from the JDK's on Java 7 and later); org.bouncycastle.jce.provider.test.CertPathValidatorTest#perform (depends on the machine's time zone; passes with Australia/Melbourne); org.bouncycastle.jce.provider.test.CertPathBuilderTest#perform (depends on the machine's time zone; passes with Australia/Melbourne); org.bouncycastle.jce.provider.test.nist.NistCertPathTest#testInvalidNegativeSerialNumberTest15 (depends on the machine's time zone; passes with Australia/Melbourne); org.bouncycastle.i18n.test.LocalizedMessageTest#testGetEntry (JDK 7 and later locale data); org.bouncycastle.crypto.tls.test.BasicTlsTest#testConnection (the JDK's TLS policy (jdk.tls.disabledAlgorithms); passes with it emptied). Main classes compiled with Zulu 6u42's javac at the build's source and target; test classes compiled and run on Zulu 8. The suite runs every RegressionTest entry of asn1, crypto, jce.provider and openpgp as its own test instead of the tag's four AllTests methods that stop at their first failing entry, the runner the weekend's port also used; the accepted exceptions are single entries or methods."
+  note: "909 tests at the patch commit, 0 of them skipped by the suite, 0 failed, 0 errors. Left out of the run as accepted exceptions: org.bouncycastle.jce.provider.test.CertTest#perform (BC 1.47's certificate hashCode differs from the JDK's on Java 7 and later); org.bouncycastle.jce.provider.test.CertPathValidatorTest#perform (depends on the machine's time zone; passes with Australia/Melbourne); org.bouncycastle.jce.provider.test.CertPathBuilderTest#perform (depends on the machine's time zone; passes with Australia/Melbourne); org.bouncycastle.jce.provider.test.nist.NistCertPathTest#testInvalidNegativeSerialNumberTest15 (depends on the machine's time zone; passes with Australia/Melbourne); org.bouncycastle.i18n.test.LocalizedMessageTest#testGetEntry (JDK 7 and later locale data); org.bouncycastle.crypto.tls.test.BasicTlsTest#testConnection (the JDK's TLS policy (jdk.tls.disabledAlgorithms); passes with it emptied). Main classes compiled with Zulu 6u42's javac at the build's source and target; test classes compiled and run on Zulu 8. The suite runs every RegressionTest entry of asn1, crypto, jce.provider and openpgp as its own test instead of the tag's four AllTests methods that stop at their first failing entry, the runner the weekend's port also used; the accepted exceptions are single entries or methods."
