@@ -50,6 +50,7 @@ import org.bouncycastle.crypto.io.MacOutputStream;
 import org.bouncycastle.crypto.macs.HMac;
 import org.bouncycastle.jce.interfaces.BCKeyStore;
 import org.bouncycastle.util.Arrays;
+import org.bouncycastle.util.Properties;
 import org.bouncycastle.util.io.Streams;
 import org.bouncycastle.util.io.TeeOutputStream;
 
@@ -844,6 +845,12 @@ public class JDKKeyStore
             if (version != 0 && version != 1)
             {
                 throw new IOException("Wrong version of key store.");
+            }
+            // CVE-2018-5382: version 0/1 stores derive a 16-bit HMAC integrity key and the version
+            // field is read from the untrusted file, so only honour it when the caller opted in.
+            if (!Properties.isOverrideSet(Properties.BKS_ENABLE_V1))
+            {
+                throw new IOException("BKS version 1 keystore not supported (set " + Properties.BKS_ENABLE_V1 + " to read legacy stores)");
             }
         }
 

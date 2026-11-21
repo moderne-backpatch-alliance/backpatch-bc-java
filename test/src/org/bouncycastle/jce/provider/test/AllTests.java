@@ -39,6 +39,8 @@ public class AllTests
     public static Test suite()
     {
         TestSuite suite = new TestSuite("JCE Tests");
+
+        System.setProperty("org.bouncycastle.bks.enable_v1", "true");
         
         if (Security.getProvider("BC") == null)
         {

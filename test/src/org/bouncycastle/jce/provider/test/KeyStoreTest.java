@@ -29,6 +29,7 @@ import org.bouncycastle.jce.X509Principal;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.math.ec.ECCurve;
+import org.bouncycastle.util.Properties;
 import org.bouncycastle.util.encoders.Base64;
 import org.bouncycastle.util.encoders.Hex;
 import org.bouncycastle.util.test.SimpleTest;
@@ -322,6 +323,34 @@ public class KeyStoreTest
         cert.verify(pubKey);
     }
 
+    // CVE-2018-5382: default BKS must refuse a version 0/1 store (16-bit HMAC key) unless
+    // org.bouncycastle.bks.enable_v1 is set. The test harness sets that system property, so
+    // it is overridden off on this thread to exercise the default behaviour.
+    private void v1RejectedByDefaultTest()
+        throws Exception
+    {
+        Properties.setThreadOverride(Properties.BKS_ENABLE_V1, false);
+        try
+        {
+            KeyStore ks = KeyStore.getInstance("BKS", "BC");
+
+            ks.load(new ByteArrayInputStream(v1BKS), oldStorePass);
+
+            fail("default BKS loaded a version 1 store without " + Properties.BKS_ENABLE_V1);
+        }
+        catch (IOException e)
+        {
+            if (!e.getMessage().startsWith("BKS version 1 keystore not supported"))
+            {
+                fail("unexpected exception: " + e.getMessage());
+            }
+        }
+        finally
+        {
+            Properties.removeThreadOverride(Properties.BKS_ENABLE_V1);
+        }
+    }
+
     private void oldStoreTest()
         throws Exception
     {
@@ -382,6 +411,7 @@ public class KeyStoreTest
         keyStoreTest("UBER");
         ecStoreTest("BKS");
         oldStoreTest();
+        v1RejectedByDefaultTest();
         checkException();
         checkOversizedEntryRejected();
         checkLargeEntryStreamed();
@@ -499,6 +529,8 @@ public class KeyStoreTest
     public static void main(
         String[]    args)
     {
+        System.setProperty("org.bouncycastle.bks.enable_v1", "true");
+
         Security.addProvider(new BouncyCastleProvider());
 
         runTest(new KeyStoreTest());
