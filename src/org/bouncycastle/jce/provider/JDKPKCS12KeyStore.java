@@ -83,7 +83,7 @@ public class JDKPKCS12KeyStore
     implements PKCSObjectIdentifiers, X509ObjectIdentifiers, BCKeyStore
 {
     private static final int                SALT_SIZE = 20;
-    private static final int                MIN_ITERATIONS = 1024;
+    private static final int                MIN_ITERATIONS = 600000;
 
     private static final Provider           bcProvider = new BouncyCastleProvider();
 
