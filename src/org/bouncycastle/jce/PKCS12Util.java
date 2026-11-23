@@ -3,8 +3,6 @@ package org.bouncycastle.jce;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
@@ -24,6 +22,7 @@ import org.bouncycastle.asn1.pkcs.MacData;
 import org.bouncycastle.asn1.pkcs.Pfx;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.DigestInfo;
+import org.bouncycastle.util.Properties;
 
 /**
  * Utility class for re-encoding PKCS#12 files to definite length.
@@ -31,8 +30,6 @@ import org.bouncycastle.asn1.x509.DigestInfo;
 public class PKCS12Util
 {
     private static final BigInteger DEFAULT_MAX_IT_COUNT = BigInteger.valueOf(5000000);
-
-    static final String PKCS12_MAX_IT_COUNT_PROPERTY = "org.bouncycastle.pkcs12.max_it_count";
 
     /**
      * Just re-encode the outer layer of the PKCS#12 file to definite length encoding.
@@ -135,16 +132,9 @@ public class PKCS12Util
         return ic.intValue();
     }
 
-    // 1.47 has no org.bouncycastle.util.Properties: upstream's property, read as a system property
     private static BigInteger findMaxIterationCount()
     {
-        String value = (String)AccessController.doPrivileged(new PrivilegedAction()
-        {
-            public Object run()
-            {
-                return System.getProperty(PKCS12_MAX_IT_COUNT_PROPERTY);
-            }
-        });
+        String value = Properties.getPropertyValue(Properties.PKCS12_MAX_IT_COUNT);
 
         return (value != null) ? new BigInteger(value.trim()) : null;
     }

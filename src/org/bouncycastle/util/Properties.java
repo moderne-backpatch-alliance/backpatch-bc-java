@@ -15,6 +15,11 @@ public class Properties
      */
     public static final String BKS_ENABLE_V1 = "org.bouncycastle.bks.enable_v1";
 
+    /**
+     * If set, a PKCS12 file with a larger iteration count on PBE processing will rejected.
+     */
+    public static final String PKCS12_MAX_IT_COUNT = "org.bouncycastle.pkcs12.max_it_count";
+
     private Properties()
     {
     }
