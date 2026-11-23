@@ -6,13 +6,20 @@ import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
 import java.security.Security;
 import java.security.cert.CertPath;
+import java.security.cert.CertPathBuilder;
 import java.security.cert.CertPathValidator;
 import java.security.cert.CertPathValidatorException;
+import java.security.cert.CertStore;
 import java.security.cert.CertificateFactory;
+import java.security.cert.CollectionCertStoreParameters;
+import java.security.cert.PKIXBuilderParameters;
+import java.security.cert.PKIXCertPathBuilderResult;
 import java.security.cert.PKIXParameters;
 import java.security.cert.TrustAnchor;
+import java.security.cert.X509CertSelector;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -98,6 +105,119 @@ public class CheckNameConstraintsTest
         org.bouncycastle.x509.PKIXCertPathReviewer okLegacy = new org.bouncycastle.x509.PKIXCertPathReviewer();
         okLegacy.init(goodPath, goodParam);
         assertTrue("legacy reviewer rejected a compliant leaf", okLegacy.isValidCertPath());
+    }
+
+    // CVE-2025-8916, from upstream's pkix CheckNameConstraintsTest (bc-test-data pkix/mal-*.crt); the
+    // certificates expired on 2025-04-22, so each check runs at a date inside their validity
+    public void testPKIXCertPathReviewer()
+        throws Exception
+    {
+        Security.addProvider(new BouncyCastleProvider());
+
+        CertificateFactory cf = CertificateFactory.getInstance("X.509", "BC");
+
+        X509Certificate root = (X509Certificate) cf.generateCertificate(getClass().getResourceAsStream("mal-root.crt"));
+        X509Certificate ca1 = (X509Certificate) cf.generateCertificate(getClass().getResourceAsStream("mal-ca1.crt"));
+        X509Certificate ca2 = (X509Certificate) cf.generateCertificate(getClass().getResourceAsStream("mal-ca2.crt"));
+        X509Certificate leaf = (X509Certificate) cf.generateCertificate(getClass().getResourceAsStream("mal-leaf.crt"));
+
+        List certchain = new ArrayList();
+        certchain.add(root);
+        certchain.add(ca1);
+        certchain.add(ca2);
+        certchain.add(leaf);
+
+        CertPath cp = cf.generateCertPath(certchain);
+
+        Set trust = new HashSet();
+        trust.add(new TrustAnchor(root, null));
+        PKIXParameters param = new PKIXParameters(trust);
+        param.setDate(MAL_VALID_DATE);
+
+        org.bouncycastle.x509.PKIXCertPathReviewer certPathReviewer = new org.bouncycastle.x509.PKIXCertPathReviewer();
+        certPathReviewer.init(cp, param);
+
+        assertFalse(certPathReviewer.isValidCertPath()); // hit
+        assertTrue("reviewer did not refuse the subject alt names",
+            hasNotification(certPathReviewer.getErrors(), "CertPathReviewer.subjAltNameExtError"));
+    }
+
+    public void testPKIXCertPathBuilder()
+        throws Exception
+    {
+        Security.addProvider(new BouncyCastleProvider());
+
+        CertificateFactory cf = CertificateFactory.getInstance("X.509", "BC");
+        X509Certificate rootCert = (X509Certificate) cf.generateCertificate(getClass().getResourceAsStream("mal-root.crt"));
+        X509Certificate endCert = (X509Certificate) cf.generateCertificate(getClass().getResourceAsStream("mal-ca1.crt"));
+
+        // create CertStore to support path building
+        List list = new ArrayList();
+        list.add(endCert);
+
+        CollectionCertStoreParameters params = new CollectionCertStoreParameters(list);
+        CertStore                     store = CertStore.getInstance("Collection", params, "BC");
+
+        // build the path
+        CertPathBuilder  builder = CertPathBuilder.getInstance("PKIX", "BC");
+        X509CertSelector pathConstraints = new X509CertSelector();
+
+        pathConstraints.setCertificate(endCert);
+
+        PKIXBuilderParameters buildParams = new PKIXBuilderParameters(Collections.singleton(new TrustAnchor(rootCert, null)), pathConstraints);
+
+        buildParams.addCertStore(store);
+        buildParams.setDate(MAL_VALID_DATE);
+        buildParams.setRevocationEnabled(false);
+
+        PKIXCertPathBuilderResult result = (PKIXCertPathBuilderResult)builder.build(buildParams);
+        CertPath                  path = result.getCertPath();
+
+        if (path.getCertificates().size() != 1)
+        {
+            fail("wrong number of certs in testPKIXCertPathBuilder path");
+        }
+    }
+
+    public void testPKIXCertPathValidator()
+        throws Exception
+    {
+        Security.addProvider(new BouncyCastleProvider());
+
+        CertificateFactory cf = CertificateFactory.getInstance("X.509", "BC");
+
+        X509Certificate rootCert = (X509Certificate) cf.generateCertificate(getClass().getResourceAsStream("mal-root.crt"));
+        X509Certificate endCert = (X509Certificate) cf.generateCertificate(getClass().getResourceAsStream("mal-ca1.crt"));
+
+        List list = new ArrayList();
+        list.add(endCert);
+
+        CertPath certPath = cf.generateCertPath(list);
+
+        Set trust = new HashSet();
+        trust.add(new TrustAnchor(rootCert, null));
+
+        CertPathValidator cpv = CertPathValidator.getInstance("PKIX", "BC");
+        PKIXParameters param = new PKIXParameters(trust);
+        param.setRevocationEnabled(false);
+        param.setDate(MAL_VALID_DATE);
+
+        cpv.validate(certPath, param);
+    }
+
+    // 2024-10-22 00:00:00 UTC
+    private static final Date MAL_VALID_DATE = new Date(1729555200000L);
+
+    private static boolean hasNotification(List[] notifications, String id)
+    {
+        for (int i = 0; i != notifications.length; i++)
+        {
+            if (hasNotification(notifications[i], id))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static KeyPair generateKeyPair()
