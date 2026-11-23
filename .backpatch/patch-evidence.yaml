@@ -1,6 +1,6 @@
 schema: osera-patch-evidence/0.1.0
 producer: moderne
-release: 1.47.1-backpatch-00024
+release: 1.47.1-backpatch-00025
 baseline: v1.47+backpatch.baseline
 fixes:
   - cve: CVE-2013-1624
@@ -138,7 +138,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: Carried from 1.47.1-backpatch-00016; a superseded fix, ported onto 1.47 at 1.47.1-backpatch-00016 (backpatch-bc-java@8d9c2b9..18ac1a9).
+    note: Carried from 1.47.1-backpatch-00016; ported onto 1.47; fixed at 1.47.1-backpatch-00016 (backpatch-bc-java@8d9c2b9..18ac1a9).
   - cve: CVE-2026-14682
     upstream_fix_url: https://github.com/advisories/GHSA-4hc3-69f9-4wfx
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-14682
@@ -154,7 +154,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: Carried from 1.47.1-backpatch-00018; a superseded fix, ported onto 1.47 at 1.47.1-backpatch-00018 (backpatch-bc-java@924cf45).
+    note: Carried from 1.47.1-backpatch-00018; ported onto 1.47; fixed at 1.47.1-backpatch-00018 (backpatch-bc-java@924cf45).
   - cve: CVE-2026-59649
     upstream_fix_url: https://github.com/advisories/GHSA-r7h8-35pv-fwgx
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-59649
@@ -162,7 +162,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: Carried from 1.47.1-backpatch-00019; a superseded fix, ported onto 1.47 at 1.47.1-backpatch-00019 (backpatch-bc-java@42cc14f).
+    note: Carried from 1.47.1-backpatch-00019; ported onto 1.47; fixed at 1.47.1-backpatch-00019 (backpatch-bc-java@42cc14f).
   - cve: CVE-2026-59650
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/daeaae9d7075d04f40812e68671ebf4c777b5148
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-59650
@@ -186,7 +186,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
-    note: Carried from 1.47.1-backpatch-00022; a superseded fix, ported onto 1.47 at 1.47.1-backpatch-00022 (backpatch-bc-java@31f69d2).
+    note: Carried from 1.47.1-backpatch-00022; ported onto 1.47; fixed at 1.47.1-backpatch-00022 (backpatch-bc-java@31f69d2).
   - cve: CVE-2026-71889
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/06dcff2f51037095de126986285c998e3455ab85
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-71889
@@ -203,7 +203,7 @@ fixes:
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
       - org.bouncycastle:bcpkix-jdk15on
-    note: "New in this release; ported onto 1.47; fixed at 1.47.1-backpatch-00024 (backpatch-bc-java@6abcd48..fcf073e). Keystores written by this release use upstream's 600000 PKCS12 iterations: slower writes, still readable by older versions."
+    note: "Carried from 1.47.1-backpatch-00024; ported onto 1.47; fixed at 1.47.1-backpatch-00024 (backpatch-bc-java@6abcd48..fcf073e). Keystores written by this release use upstream's 600000 PKCS12 iterations: slower writes, still readable by older versions."
   - cve: CVE-2026-59642
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/2117f316a5a47308f3e569695a6592b16aac0dd7
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-59642
@@ -211,7 +211,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcpkix-jdk15on
-    note: New in this release; ported onto 1.47; fixed at 1.47.1-backpatch-00024 (backpatch-bc-java@6abcd48..fcf073e).
+    note: Carried from 1.47.1-backpatch-00024; ported onto 1.47; fixed at 1.47.1-backpatch-00024 (backpatch-bc-java@6abcd48..fcf073e).
   - cve: CVE-2026-59649
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/a43c40dc12c3e1c6cbd03c83fe30aaec4029b824
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-59649
@@ -219,7 +219,7 @@ fixes:
     basis: adapted
     artifacts:
       - org.bouncycastle:bcpg-jdk15on
-    note: New in this release; ported onto 1.47; fixed at 1.47.1-backpatch-00024 (backpatch-bc-java@6abcd48..fcf073e).
+    note: Carried from 1.47.1-backpatch-00024; ported onto 1.47; fixed at 1.47.1-backpatch-00024 (backpatch-bc-java@6abcd48..fcf073e).
   - cve: CVE-2026-71888
     upstream_fix_url: https://github.com/bcgit/bc-java/commit/dcb683b32b440f1beb1d2276a34930164281fb95
     advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2026-71888
@@ -228,12 +228,20 @@ fixes:
     artifacts:
       - org.bouncycastle:bcprov-jdk15on
       - org.bouncycastle:bcpkix-jdk15on
-    note: New in this release; ported onto 1.47; fixed at 1.47.1-backpatch-00024 (backpatch-bc-java@6abcd48..fcf073e).
+    note: Carried from 1.47.1-backpatch-00024; ported onto 1.47; fixed at 1.47.1-backpatch-00024 (backpatch-bc-java@6abcd48..fcf073e).
+  - cve: CVE-2025-8916
+    upstream_fix_url: https://github.com/bcgit/bc-java/commit/ff444a479942d88de64004dc82c3ee32a9e9075a
+    advisory_url: https://nvd.nist.gov/vuln/detail/CVE-2025-8916
+    patch_commit_url: https://github.com/moderne-backpatch-alliance/backpatch-bc-java/commit/1ca29c9
+    basis: adapted
+    artifacts:
+      - org.bouncycastle:bcprov-jdk15on
+    note: New in this release; ported onto 1.47; fixed at 1.47.1-backpatch-00025 (backpatch-bc-java@1ca29c9).
 tests:
-  commit: fcf073e1a5b5de6b8d0f6de7895698ba114838d7
+  commit: 1ca29c958d42cc5eabd48aef0e97f90c1f154577
   command: "bc-perentry.sh: the tag's bc+-build.xml builds through a driver that only sets javac; then BcSuiteRunner runs the suites the tag's test target selects (every AllTests, nist/Nist*Test, rsa3/RSA3CertTest), with each RegressionTest entry of asn1, crypto, jce.provider and openpgp as its own test org.bouncycastle.jce.provider.test.CertTest#perform,org.bouncycastle.jce.provider.test.CertPathValidatorTest#perform,org.bouncycastle.jce.provider.test.CertPathBuilderTest#perform,org.bouncycastle.jce.provider.test.nist.NistCertPathTest#testInvalidNegativeSerialNumberTest15,org.bouncycastle.i18n.test.LocalizedMessageTest#testGetEntry,org.bouncycastle.crypto.tls.test.BasicTlsTest#testConnection"
   runtime: openjdk version 1.8.0_382 (Zulu) for the tests, Apache Ant 1.10 with the tag's build files; main classes compiled by Zulu 6u42's javac; javax.mail 1.6.2 and activation 1.1 on the test classpath
-  report: bcprov-jdk15on-1.47.1-backpatch-00024-tests.zip
-  report_sha256: 3d79ad5401be4c33310233c017aa8cad3192c8d522d12fc09835b86f46f30e9b
+  report: bcprov-jdk15on-1.47.1-backpatch-00025-tests.zip
+  report_sha256: ac80e48adb4bbb6b20f2905edd5120cd8a126b9d3898825915e1ad939a94dfc7
   result: pass
-  note: "910 tests at the patch commit, 0 of them skipped by the suite, 0 failed, 0 errors. Left out of the run as accepted exceptions: org.bouncycastle.jce.provider.test.CertTest#perform (BC 1.47's certificate hashCode differs from the JDK's on Java 7 and later); org.bouncycastle.jce.provider.test.CertPathValidatorTest#perform (depends on the machine's time zone; passes with Australia/Melbourne); org.bouncycastle.jce.provider.test.CertPathBuilderTest#perform (depends on the machine's time zone; passes with Australia/Melbourne); org.bouncycastle.jce.provider.test.nist.NistCertPathTest#testInvalidNegativeSerialNumberTest15 (depends on the machine's time zone; passes with Australia/Melbourne); org.bouncycastle.i18n.test.LocalizedMessageTest#testGetEntry (JDK 7 and later locale data); org.bouncycastle.crypto.tls.test.BasicTlsTest#testConnection (the JDK's TLS policy (jdk.tls.disabledAlgorithms); passes with it emptied). Main classes compiled with Zulu 6u42's javac at the build's source and target; test classes compiled and run on Zulu 8. The suite runs every RegressionTest entry of asn1, crypto, jce.provider and openpgp as its own test instead of the tag's four AllTests methods that stop at their first failing entry, the runner the weekend's port also used; the accepted exceptions are single entries or methods."
+  note: "913 tests at the patch commit, 0 of them skipped by the suite, 0 failed, 0 errors. Left out of the run as accepted exceptions: org.bouncycastle.jce.provider.test.CertTest#perform (BC 1.47's certificate hashCode differs from the JDK's on Java 7 and later); org.bouncycastle.jce.provider.test.CertPathValidatorTest#perform (depends on the machine's time zone; passes with Australia/Melbourne); org.bouncycastle.jce.provider.test.CertPathBuilderTest#perform (depends on the machine's time zone; passes with Australia/Melbourne); org.bouncycastle.jce.provider.test.nist.NistCertPathTest#testInvalidNegativeSerialNumberTest15 (depends on the machine's time zone; passes with Australia/Melbourne); org.bouncycastle.i18n.test.LocalizedMessageTest#testGetEntry (JDK 7 and later locale data); org.bouncycastle.crypto.tls.test.BasicTlsTest#testConnection (the JDK's TLS policy (jdk.tls.disabledAlgorithms); passes with it emptied). Main classes compiled with Zulu 6u42's javac at the build's source and target; test classes compiled and run on Zulu 8. The suite runs every RegressionTest entry of asn1, crypto, jce.provider and openpgp as its own test instead of the tag's four AllTests methods that stop at their first failing entry, the runner the weekend's port also used; the accepted exceptions are single entries or methods."
